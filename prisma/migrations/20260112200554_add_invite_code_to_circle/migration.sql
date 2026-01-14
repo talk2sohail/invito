@@ -1,12 +1,18 @@
 /*
-  Warnings:
-
-  - A unique constraint covering the columns `[inviteCode]` on the table `Circle` will be added. If there are existing duplicate values, this will fail.
-  - The required column `inviteCode` was added to the `Circle` table with a prisma-level default value. This is not possible if the table is not empty. Please add this column as optional, then populate it before making it required.
-
+  Fixing failed migration: Add inviteCode to Circle safely.
 */
--- AlterTable
-ALTER TABLE "Circle" ADD COLUMN     "inviteCode" TEXT NOT NULL;
 
--- CreateIndex
+-- 1. Add column as nullable initially
+ALTER TABLE "Circle" ADD COLUMN "inviteCode" TEXT;
+
+-- 2. Populate existing rows with a unique value
+-- Using md5 of random+timestamp to generate a pseudo-unique string similar to CUID length
+UPDATE "Circle"
+SET "inviteCode" = substring(md5(random()::text || clock_timestamp()::text) from 1 for 10)
+WHERE "inviteCode" IS NULL;
+
+-- 3. Make column required
+ALTER TABLE "Circle" ALTER COLUMN "inviteCode" SET NOT NULL;
+
+-- 4. Add unique index
 CREATE UNIQUE INDEX "Circle_inviteCode_key" ON "Circle"("inviteCode");
