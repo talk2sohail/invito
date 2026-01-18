@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"invito-backend/internal/api"
 	"invito-backend/internal/auth"
 	"invito-backend/internal/models"
 	"invito-backend/internal/repository"
@@ -13,38 +14,40 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type InviteHandler struct {
+type InvitesHandler struct {
 	Repo repository.InviteRepository
 }
 
-func NewInviteHandler(repo repository.InviteRepository) *InviteHandler {
-	return &InviteHandler{Repo: repo}
+func NewInvitesHandler(repo repository.InviteRepository) *InvitesHandler {
+	return &InvitesHandler{Repo: repo}
 }
 
-func (h *InviteHandler) RegisterRoutes(r chi.Router) {
-	r.Post("/", h.CreateInvite)
-	r.Get("/", h.ListInvites)
-	r.Get("/{id}", h.GetInvite)
-	r.Post("/{id}/rsvp", h.RSVP)
-	r.Delete("/{id}", h.DeleteInvite)
+func (h *InvitesHandler) RegisterRoutes(r chi.Router) {
+	r.Method("POST", "/", api.Handler(h.CreateInvite))
+	r.Method("GET", "/", api.Handler(h.ListInvites))
+	r.Method("GET", "/{id}", api.Handler(h.GetInvite))
+	r.Method("POST", "/{id}/rsvp", api.Handler(h.RespondToRSVP))
+	r.Method("DELETE", "/{id}", api.Handler(h.DeleteInvite))
 }
 
-func (h *InviteHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
+func (h *InvitesHandler) CreateInvite(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 
 	var req models.CreateInviteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return api.ErrBadRequest("Invalid request body")
 	}
 
-	id := utils.GenerateID("invite")
+	if req.Title == "" || req.EventDate.IsZero() {
+		return api.ErrBadRequest("Title, event date are required")
+	}
+
+	inviteID := utils.GenerateID("invite")
 	invite := &models.Invite{
-		ID:          id,
+		ID:          inviteID,
 		Title:       req.Title,
 		Description: req.Description,
 		Location:    req.Location,
@@ -56,103 +59,105 @@ func (h *InviteHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Repo.CreateInvite(r.Context(), invite); err != nil {
-		http.Error(w, "Failed to create invite: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": id})
+	return json.NewEncoder(w).Encode(invite)
 }
 
-func (h *InviteHandler) ListInvites(w http.ResponseWriter, r *http.Request) {
+func (h *InvitesHandler) ListInvites(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 
 	response, err := h.Repo.ListInvites(r.Context(), userID)
 	if err != nil {
-		http.Error(w, "Failed to fetch invites: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response)
 }
 
-func (h *InviteHandler) RSVP(w http.ResponseWriter, r *http.Request) {
+func (h *InvitesHandler) RespondToRSVP(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 
 	inviteID := chi.URLParam(r, "id")
-	var req models.RSVPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+	if inviteID == "" {
+		return api.ErrBadRequest("Invite ID required")
 	}
 
-	id := utils.GenerateID("rsvp")
+	var req models.RSVPRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return api.ErrBadRequest("Invalid request body")
+	}
+
+	if req.Status == "" {
+		return api.ErrBadRequest("Status is required")
+	}
+
+	if req.GuestCount < 1 {
+		req.GuestCount = 1
+	}
+
+	// Upsert RSVP
+	rsvpID := utils.GenerateID("rsvp") // Might not be used if updating, but fine to generate
 	rsvp := &models.RSVP{
-		ID:         id,
+		ID:         rsvpID,
 		InviteID:   inviteID,
 		UserID:     userID,
 		Status:     req.Status,
 		GuestCount: req.GuestCount,
 		Dietary:    req.Dietary,
 		Note:       req.Note,
-		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
 
 	if err := h.Repo.UpsertRSVP(r.Context(), rsvp); err != nil {
-		http.Error(w, "Failed to RSVP: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
-	w.Write([]byte(`{"success":true}`))
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-func (h *InviteHandler) DeleteInvite(w http.ResponseWriter, r *http.Request) {
+func (h *InvitesHandler) DeleteInvite(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 	inviteID := chi.URLParam(r, "id")
 
 	senderID, err := h.Repo.GetSenderID(r.Context(), inviteID)
 	if err != nil {
-		http.Error(w, "Invite not found", http.StatusNotFound)
-		return
+		return api.ErrNotFound("Invite not found")
 	}
 
 	if senderID != userID {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
-		return
+		return api.ErrForbidden("Only sender can delete invite")
 	}
 
 	if err := h.Repo.DeleteInvite(r.Context(), inviteID); err != nil {
-		http.Error(w, "Failed to delete invite", http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	return json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-func (h *InviteHandler) GetInvite(w http.ResponseWriter, r *http.Request) {
+func (h *InvitesHandler) GetInvite(w http.ResponseWriter, r *http.Request) error {
 	inviteID := chi.URLParam(r, "id")
 
 	details, err := h.Repo.GetInviteDetails(r.Context(), inviteID)
 	if err != nil {
-		http.Error(w, "Invite not found: "+err.Error(), http.StatusNotFound)
-		return
+		return api.ErrNotFound("Invite not found")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(details)
+	return json.NewEncoder(w).Encode(details)
 }

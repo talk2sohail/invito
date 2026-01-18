@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8081/api";
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080/api";
 
 export async function fetchFromBackend(
 	endpoint: string,
@@ -17,8 +17,7 @@ export async function fetchFromBackend(
 	if (!token) {
 		// Fallback or error? For now, let's allow it to proceed potentially without auth
 		// if the endpoint is public, but most are protected.
-		// Or specific handling.
-		console.warn("[API Proxy] No session token found in cookies.");
+		console.warn(`[API Proxy] No session token found in cookies for ${endpoint}`);
 	}
 
 	const headers: Record<string, string> = {

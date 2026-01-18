@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"invito-backend/internal/api"
 	"invito-backend/internal/auth"
 	"invito-backend/internal/models"
 	"invito-backend/internal/repository"
@@ -23,7 +24,7 @@ func NewFeedHandler(repo repository.FeedRepository) *FeedHandler {
 
 func (h *FeedHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/", h.CreatePost)
-	r.Get("/{inviteId}", h.GetFeed)
+	r.Method("GET", "/", api.Handler(h.GetFeed))
 }
 
 func (h *FeedHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
@@ -58,15 +59,14 @@ func (h *FeedHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"id": id})
 }
 
-func (h *FeedHandler) GetFeed(w http.ResponseWriter, r *http.Request) {
+func (h *FeedHandler) GetFeed(w http.ResponseWriter, r *http.Request) error {
 	inviteID := chi.URLParam(r, "inviteId")
 
 	items, err := h.Repo.GetFeed(r.Context(), inviteID)
 	if err != nil {
-		http.Error(w, "Failed to fetch feed: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(items)
+	return json.NewEncoder(w).Encode(items)
 }

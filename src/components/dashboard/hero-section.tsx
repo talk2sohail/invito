@@ -1,10 +1,10 @@
-import { CircleWithRelations } from "@/types";
+import { CirclePreview } from "@/types";
 import { CreateInviteDialog } from "@/components/invites/create-invite-dialog";
 import { CreateCircleDialog } from "@/components/circles/create-circle-dialog";
 import { use } from "react";
 
 interface HeroSectionProps {
-  circlesPromise: Promise<CircleWithRelations[]>;
+  circlesPromise: Promise<CirclePreview[]>;
   userId: string;
 }
 

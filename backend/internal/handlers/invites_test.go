@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"invito-backend/internal/api"
 	"invito-backend/internal/auth"
 	"invito-backend/internal/repository"
 
@@ -27,7 +28,7 @@ func TestCreateInvite(t *testing.T) {
 	defer mockDB.Close()
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 	repo := repository.NewInviteRepository(sqlxDB)
-	handler := NewInviteHandler(repo)
+	handler := NewInvitesHandler(repo)
 
 	// Fixed time for event date
 	eventDate := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -65,7 +66,8 @@ func TestCreateInvite(t *testing.T) {
 			}
 			tt.mockBehavior()
 			rr := httptest.NewRecorder()
-			handler.CreateInvite(rr, req)
+			// Wrap with api.Handler to handle errors
+			api.Handler(handler.CreateInvite).ServeHTTP(rr, req)
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 			if err := mock.ExpectationsWereMet(); err != nil {
 				t.Errorf("unfulfilled expectations: %s", err)
@@ -82,7 +84,7 @@ func TestRSVP(t *testing.T) {
 	defer mockDB.Close()
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 	repo := repository.NewInviteRepository(sqlxDB)
-	handler := NewInviteHandler(repo)
+	handler := NewInvitesHandler(repo)
 
 	tests := []struct {
 		name           string
@@ -136,7 +138,7 @@ func TestRSVP(t *testing.T) {
 
 			tt.mockBehavior()
 			rr := httptest.NewRecorder()
-			handler.RSVP(rr, req)
+			api.Handler(handler.RespondToRSVP).ServeHTTP(rr, req)
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 			if err := mock.ExpectationsWereMet(); err != nil {
 				t.Errorf("unfulfilled expectations: %s", err)
@@ -153,7 +155,7 @@ func TestListInvites(t *testing.T) {
 	defer mockDB.Close()
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 	repo := repository.NewInviteRepository(sqlxDB)
-	handler := NewInviteHandler(repo)
+	handler := NewInvitesHandler(repo)
 
 	tests := []struct {
 		name           string
@@ -191,7 +193,7 @@ func TestListInvites(t *testing.T) {
 			}
 			tt.mockBehavior()
 			rr := httptest.NewRecorder()
-			handler.ListInvites(rr, req)
+			api.Handler(handler.ListInvites).ServeHTTP(rr, req)
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 			if err := mock.ExpectationsWereMet(); err != nil {
 				t.Errorf("unfulfilled expectations: %s", err)
@@ -208,7 +210,7 @@ func TestGetInvite(t *testing.T) {
 	defer mockDB.Close()
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 	repo := repository.NewInviteRepository(sqlxDB)
-	handler := NewInviteHandler(repo)
+	handler := NewInvitesHandler(repo)
 
 	tests := []struct {
 		name           string
@@ -268,7 +270,7 @@ func TestGetInvite(t *testing.T) {
 
 			tt.mockBehavior()
 			rr := httptest.NewRecorder()
-			handler.GetInvite(rr, req)
+			api.Handler(handler.GetInvite).ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 			if err := mock.ExpectationsWereMet(); err != nil {
@@ -286,7 +288,7 @@ func TestDeleteInvite(t *testing.T) {
 	defer mockDB.Close()
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 	repo := repository.NewInviteRepository(sqlxDB)
-	handler := NewInviteHandler(repo)
+	handler := NewInvitesHandler(repo)
 
 	tests := []struct {
 		name           string
@@ -341,7 +343,7 @@ func TestDeleteInvite(t *testing.T) {
 
 			tt.mockBehavior()
 			rr := httptest.NewRecorder()
-			handler.DeleteInvite(rr, req)
+			api.Handler(handler.DeleteInvite).ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 			if err := mock.ExpectationsWereMet(); err != nil {

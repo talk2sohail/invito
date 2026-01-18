@@ -5,11 +5,11 @@ const (
 	QuerySyncUser = `
 		INSERT INTO "User" (id, name, email, image, "emailVerified")
 		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (id) DO UPDATE SET
+		ON CONFLICT (email) DO UPDATE SET
+		id = EXCLUDED.id,
 		name = EXCLUDED.name,
 		email = EXCLUDED.email,
 		image = EXCLUDED.image,
-		"emailVerified" = EXCLUDED."emailVerified"
 		"emailVerified" = EXCLUDED."emailVerified"
 	`
 

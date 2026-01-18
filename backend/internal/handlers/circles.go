@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"invito-backend/internal/api"
 	"invito-backend/internal/auth"
 	"invito-backend/internal/models"
 	"invito-backend/internal/repository"
@@ -14,98 +15,110 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type CircleHandler struct {
+type CirclesHandler struct {
 	Repo repository.CircleRepository
 }
 
-func NewCircleHandler(repo repository.CircleRepository) *CircleHandler {
-	return &CircleHandler{Repo: repo}
+func NewCirclesHandler(repo repository.CircleRepository) *CirclesHandler {
+	return &CirclesHandler{Repo: repo}
 }
 
-func (h *CircleHandler) RegisterRoutes(r chi.Router) {
-	r.Post("/", h.CreateCircle)
-	r.Get("/", h.ListCircles)
-	r.Get("/{id}", h.GetCircle)
-	r.Post("/{id}/regenerate", h.RegenerateInviteCode)
-	r.Post("/join", h.JoinCircleByCode)
-	r.Get("/invite/{code}", h.GetCircleByInviteCode)
-	r.Delete("/{id}", h.DeleteCircle)
+func (h *CirclesHandler) RegisterProtectedRoutes(r chi.Router) {
+	r.Method("POST", "/", api.Handler(h.CreateCircle))
+	r.Method("GET", "/", api.Handler(h.ListCircles))
+	r.Method("GET", "/{id}", api.Handler(h.GetCircle))
+	r.Method("POST", "/{id}/regenerate", api.Handler(h.RegenerateInviteCode))
+	r.Method("POST", "/join/{code}", api.Handler(h.JoinCircleByCode))
+	r.Method("DELETE", "/{id}", api.Handler(h.DeleteCircle))
 }
 
-func (h *CircleHandler) GetCircleByInviteCode(w http.ResponseWriter, r *http.Request) {
+func (h *CirclesHandler) RegisterPublicRoutes(r chi.Router) {
+	r.Method("GET", "/invite/{code}", api.Handler(h.GetCircleByInviteCode))
+}
+
+func (h *CirclesHandler) GetCircleByInviteCode(w http.ResponseWriter, r *http.Request) error {
 	code := chi.URLParam(r, "code")
+	if code == "" {
+		return api.ErrBadRequest("Invite code required")
+	}
 
 	circle, err := h.Repo.GetCircleByInviteCode(r.Context(), code)
 	if err != nil {
-		http.Error(w, "Invalid invite code", http.StatusNotFound)
-		return
+		return api.ErrNotFound("Circle not found")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(circle)
+	return json.NewEncoder(w).Encode(circle)
 }
 
-func (h *CircleHandler) JoinCircleByCode(w http.ResponseWriter, r *http.Request) {
+func (h *CirclesHandler) JoinCircleByCode(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 
-	var req models.JoinCircleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+	code := chi.URLParam(r, "code")
+	if code == "" {
+		return api.ErrBadRequest("Invite code required")
 	}
 
-	circleResponse, err := h.Repo.GetCircleByInviteCode(r.Context(), req.Code)
+	// 1. Find Circle by Code
+	// Reusing GetCircleByInviteCode logic essentially, but we need ID to add member
+	circle, err := h.Repo.GetCircleByInviteCode(r.Context(), code)
 	if err != nil {
-		http.Error(w, "Invalid invite code", http.StatusBadRequest)
-		return
+		return api.ErrNotFound("Invalid invite code")
 	}
 
-	isMember, _ := h.Repo.IsMember(r.Context(), circleResponse.Circle.ID, userID)
+	// 2. Add Member
+	// Check if already member? Repo usually handles unique constraint error
+	// but we can query IsMember if we want cleaner error.
+	isMember, err := h.Repo.IsMember(r.Context(), circle.ID, userID)
+	if err != nil {
+		return api.ErrInternal(err)
+	}
 	if isMember {
+		// Idempotency: If already a member, return success and circleID so frontend redirects
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "circleId": circleResponse.Circle.ID, "alreadyMember": true})
-		return
+		return json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "circleId": circle.ID})
 	}
 
 	memberID := utils.GenerateID("member")
+
 	member := &models.CircleMember{
 		ID:       memberID,
-		CircleID: circleResponse.Circle.ID,
+		CircleID: circle.ID,
 		UserID:   userID,
 		Role:     "MEMBER",
 		JoinedAt: time.Now(),
 	}
 
 	if err := h.Repo.AddMember(r.Context(), member); err != nil {
-		http.Error(w, "Failed to join circle: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "circleId": circleResponse.Circle.ID})
+	return json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "circleId": circle.ID})
 }
 
-func (h *CircleHandler) CreateCircle(w http.ResponseWriter, r *http.Request) {
+func (h *CirclesHandler) CreateCircle(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 
 	var req models.CreateCircleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return api.ErrBadRequest("Invalid request body")
 	}
 
-	// Generate 8-char random invite code (e.g. 'Ab3dE9zX')
-	inviteCode := utils.GenerateRandomString(8)
+	if req.Name == "" {
+		return api.ErrBadRequest("Circle name is required")
+	}
+
+	// Use utils.GenerateID
 	circleID := utils.GenerateID("circle")
-	memberID := utils.GenerateID("member")
+	// Use utils.GenerateRandomString
+	inviteCode := utils.GenerateRandomString(12)
 
 	circle := &models.Circle{
 		ID:          circleID,
@@ -117,6 +130,8 @@ func (h *CircleHandler) CreateCircle(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   time.Now(),
 	}
 
+	memberID := utils.GenerateID("member")
+
 	member := &models.CircleMember{
 		ID:       memberID,
 		CircleID: circleID,
@@ -127,116 +142,127 @@ func (h *CircleHandler) CreateCircle(w http.ResponseWriter, r *http.Request) {
 
 	// Use repository transaction method
 	if err := h.Repo.CreateCircleWithMember(r.Context(), circle, member); err != nil {
-		http.Error(w, "Failed to create circle: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	return json.NewEncoder(w).Encode(map[string]string{"id": circleID})
+}
+
+func (h *CirclesHandler) ListCircles(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		return api.ErrUnauthorized("Unauthorized")
+	}
+
+	circles, err := h.Repo.ListCircles(r.Context(), userID)
+	if err != nil {
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": circleID})
+	return json.NewEncoder(w).Encode(circles)
 }
 
-func (h *CircleHandler) ListCircles(w http.ResponseWriter, r *http.Request) {
+func (h *CirclesHandler) GetCircle(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 
-	response, err := h.Repo.ListCircles(r.Context(), userID)
+	circleID := chi.URLParam(r, "id")
+	if circleID == "" {
+		return api.ErrBadRequest("Circle ID required")
+	}
+
+	// Fetch detailed circle including membership check
+	circleDetails, err := h.Repo.GetCircleDetailsByID(r.Context(), circleID)
 	if err != nil {
-		http.Error(w, "Failed to fetch circles: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrNotFound("Circle not found")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-func (h *CircleHandler) GetCircle(w http.ResponseWriter, r *http.Request) {
-	userID, ok := auth.UserIDFromContext(r.Context())
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	id := chi.URLParam(r, "id")
-
-	circle, err := h.Repo.GetCircleDetailsByID(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Circle not found", http.StatusNotFound)
-		return
-	}
-
-	// Authorization check: User must be a member
+	// Check if user is authorized (member or owner)
+	// The repo 'GetCircleDetailsByID' logic (from previous chats) fetches invitees too.
+	// But strictly, we should ensure the user is part of it.
+	// The query logic aggregates data. If the user is NOT a member/owner,
+	// should they see it? Logic in repo or service layer?
+	// Assuming repo handles retrieval, but access control:
 	isMember := false
-	for _, member := range circle.Members {
-		if member.UserID == userID {
-			isMember = true
-			break
+	if circleDetails.Circle.OwnerID == userID {
+		isMember = true
+	} else {
+		for _, member := range circleDetails.Members {
+			if member.User.ID == userID {
+				isMember = true
+				break
+			}
 		}
 	}
 
 	if !isMember {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
-		return
+		return api.ErrUnauthorized("You are not a member of this circle")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(circle)
+	return json.NewEncoder(w).Encode(circleDetails)
 }
 
-func (h *CircleHandler) RegenerateInviteCode(w http.ResponseWriter, r *http.Request) {
+func (h *CirclesHandler) RegenerateInviteCode(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
-	circleID := chi.URLParam(r, "id")
 
+	circleID := chi.URLParam(r, "id")
+	if circleID == "" {
+		return api.ErrBadRequest("Circle ID required")
+	}
+
+	// 1. Verify Ownership
 	ownerID, err := h.Repo.GetCircleOwner(r.Context(), circleID)
 	if err != nil {
-		http.Error(w, "Circle not found", http.StatusNotFound)
-		return
+		return api.ErrNotFound("Circle not found") // Assuming GetCircleOwner returns error if not found
 	}
 
 	if ownerID != userID {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
-		return
+		return api.ErrForbidden("Only the owner can regenerate invite code")
 	}
 
-	newCode := utils.GenerateRandomString(8)
+	// 2. Generate New Code
+	newCode := utils.GenerateRandomString(12)
+
+	// 3. Update DB
 	if err := h.Repo.UpdateInviteCode(r.Context(), circleID, newCode); err != nil {
-		http.Error(w, "Failed to update code", http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"inviteCode": newCode})
+	return json.NewEncoder(w).Encode(map[string]string{"inviteCode": newCode})
 }
 
-func (h *CircleHandler) DeleteCircle(w http.ResponseWriter, r *http.Request) {
+func (h *CirclesHandler) DeleteCircle(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return api.ErrUnauthorized("Unauthorized")
 	}
 	circleID := chi.URLParam(r, "id")
+	if circleID == "" {
+		return api.ErrBadRequest("Circle ID required")
+	}
 
 	ownerID, err := h.Repo.GetCircleOwner(r.Context(), circleID)
 	if err != nil {
-		http.Error(w, "Circle not found", http.StatusNotFound)
-		return
+		return api.ErrNotFound("Circle not found") // Assuming GetCircleOwner returns error if not found
 	}
 
 	if ownerID != userID {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
-		return
+		return api.ErrForbidden("Only the owner can delete a circle")
 	}
 
 	if err := h.Repo.DeleteCircle(r.Context(), circleID); err != nil {
-		http.Error(w, "Failed to delete circle", http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	return json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }

@@ -1,9 +1,9 @@
-import { CircleWithRelations, InviteWithRelations } from "@/types";
+import { CirclePreview, InviteWithRelations } from "@/types";
 import { Calendar, CircleUser } from "lucide-react";
 import { use } from "react";
 
 interface StatsCardsProps {
-  circlesPromise: Promise<CircleWithRelations[]>;
+  circlesPromise: Promise<CirclePreview[]>;
   invitesPromise: Promise<InviteWithRelations[]>;
 }
 

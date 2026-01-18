@@ -27,19 +27,23 @@ func NewLogger(logFilePath string) func(next http.Handler) http.Handler {
 
 	logger := slog.New(slog.NewJSONHandler(w, nil))
 
+	// Set this logger as the global default so other packages (like api) use it
+	slog.SetDefault(logger)
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
 			t1 := time.Now()
 			defer func() {
+				// Log request completion
 				logger.Info("request completed",
-					slog.String("request_id", middleware.GetReqID(r.Context())),
-					slog.String("method", r.Method),
-					slog.String("path", r.URL.Path),
-					slog.Int("status", ww.Status()),
-					slog.Int("bytes_written", ww.BytesWritten()),
-					slog.Duration("duration", time.Since(t1)),
+					"request_id", middleware.GetReqID(r.Context()),
+					"method", r.Method,
+					"path", r.URL.Path,
+					"status", ww.Status(),
+					"bytes_written", ww.BytesWritten(),
+					"duration", time.Since(t1),
 				)
 			}()
 

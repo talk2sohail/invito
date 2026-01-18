@@ -1,4 +1,4 @@
-import { InviteWithRelations, CircleWithRelations } from "@/types";
+import { InviteWithRelations, CirclePreview } from "@/types";
 import { use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { CreateInviteDialog } from "@/components/invites/create-invite-dialog";
 
 interface InvitesListProps {
   invitesPromise: Promise<InviteWithRelations[]>;
-  circlesPromise: Promise<CircleWithRelations[]>;
+  circlesPromise: Promise<CirclePreview[]>;
   userId: string;
 }
 

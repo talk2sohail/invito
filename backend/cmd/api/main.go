@@ -1,8 +1,9 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"invito-backend/internal/auth"
 	"invito-backend/internal/config"
@@ -35,24 +36,36 @@ func main() {
 	})
 
 	// Protected Routes
+
+	authHandler := handlers.NewAuthHandler(repo.Auth)
+	circlesHandler := handlers.NewCirclesHandler(repo.Circles)
+	invitesHandler := handlers.NewInvitesHandler(repo.Invites)
+	feedHandler := handlers.NewFeedHandler(repo.Feed)
+
+	// Circles Routes (Mixed Public/Protected)
+	r.Route("/api/circles", func(r chi.Router) {
+		// Public: GET /invite/{code}
+		circlesHandler.RegisterPublicRoutes(r)
+
+		// Protected: Everything else
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware)
+			circlesHandler.RegisterProtectedRoutes(r)
+		})
+	})
+
+	// Protected Routes Group (Other resources)
 	r.Group(func(r chi.Router) {
 		r.Use(authMiddleware)
 
-		circleHandler := handlers.NewCircleHandler(repo.Circles)
-		r.Route("/api/circles", circleHandler.RegisterRoutes)
-
-		inviteHandler := handlers.NewInviteHandler(repo.Invites)
-		r.Route("/api/invites", inviteHandler.RegisterRoutes)
-
-		feedHandler := handlers.NewFeedHandler(repo.Feed)
-		r.Route("/api/feed", feedHandler.RegisterRoutes)
-
-		authHandler := handlers.NewAuthHandler(repo.Auth)
 		r.Route("/api/auth", authHandler.RegisterRoutes)
+		r.Route("/api/invites", invitesHandler.RegisterRoutes)
+		r.Route("/api/feed", feedHandler.RegisterRoutes)
 	})
 
-	log.Printf("Starting server on port %s", cfg.Port)
+	slog.Info("Starting server", "port", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
 	}
 }

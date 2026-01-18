@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"invito-backend/internal/api"
 	"invito-backend/internal/models"
 	"invito-backend/internal/repository"
 
@@ -19,19 +20,17 @@ func NewAuthHandler(repo repository.AuthRepository) *AuthHandler {
 }
 
 func (h *AuthHandler) RegisterRoutes(r chi.Router) {
-	r.Post("/sync", h.SyncUser)
+	r.Method("POST", "/sync", api.Handler(h.SyncUser))
 }
 
-func (h *AuthHandler) SyncUser(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) SyncUser(w http.ResponseWriter, r *http.Request) error {
 	var req models.SyncUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return api.ErrBadRequest("Invalid request body")
 	}
 
 	if req.ID == "" || req.Email == "" {
-		http.Error(w, "Missing required fields", http.StatusBadRequest)
-		return
+		return api.ErrBadRequest("Missing required fields")
 	}
 
 	user := &models.User{
@@ -43,10 +42,9 @@ func (h *AuthHandler) SyncUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Repo.SyncUser(r.Context(), user); err != nil {
-		http.Error(w, "Failed to sync user: "+err.Error(), http.StatusInternalServerError)
-		return
+		return api.ErrInternal(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	return json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }

@@ -17,7 +17,7 @@ export async function createCircle(formData: FormData) {
   return result;
 }
 
-export async function getMyCircles() {
+export async function getMyCircles(): Promise<CirclePreview[]> {
   try {
     const res = await fetchFromBackend("/circles");
     return res || [];
@@ -47,9 +47,8 @@ export async function regenerateInviteCode(circleId: string) {
 
 export async function joinCircleByCode(code: string) {
   try {
-    const result = await fetchFromBackend("/circles/join", {
+    const result = await fetchFromBackend(`/circles/join/${code}`, {
       method: "POST",
-      body: JSON.stringify({ code }),
     });
 
     if (result.success) {
@@ -58,8 +57,9 @@ export async function joinCircleByCode(code: string) {
       return result;
     }
     throw new Error("Failed to join");
-  } catch (e) {
-    throw new Error("Invalid invite code");
+  } catch (e: any) {
+    console.error("Join Loop Error:", e);
+    throw new Error(e.message || "Failed to join circle");
   }
 }
 

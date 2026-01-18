@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { getMyCircles } from "@/app/actions/circles";
 import { getMyInvites } from "@/app/actions/invites";
-import { CircleWithRelations, InviteWithRelations } from "@/types";
+import { InviteWithRelations, CirclePreview } from "@/types";
 import Image from "next/image";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Suspense } from "react";
@@ -40,7 +40,7 @@ export default async function Home() {
   }
 
   // Initiate data fetching in parallel (don't await here!)
-  const circlesPromise = getMyCircles() as Promise<CircleWithRelations[]>;
+  const circlesPromise = getMyCircles() as Promise<CirclePreview[]>;
   const invitesPromise = getMyInvites() as Promise<InviteWithRelations[]>;
 
   return (

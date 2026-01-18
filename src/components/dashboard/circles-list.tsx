@@ -1,4 +1,4 @@
-import { CircleWithRelations } from "@/types";
+import { CirclePreview } from "@/types";
 import { use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CreateCircleDialog } from "@/components/circles/create-circle-dialog";
 
 interface CirclesListProps {
-  circlesPromise: Promise<CircleWithRelations[]>;
+  circlesPromise: Promise<CirclePreview[]>;
   userId: string;
 }
 
@@ -65,7 +65,7 @@ export function CirclesList({ circlesPromise, userId }: CirclesListProps) {
                       )}
                     </h4>
                     <p className="text-sm text-muted-foreground">
-                      {circle.members?.length || 0} Members
+                      {circle._count?.members || 0} Members
                     </p>
                   </div>
                 </div>
