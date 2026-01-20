@@ -46,7 +46,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-background relative overflow-hidden">
       {/* Background radial gradients */}
-      <div className="absolute top-0 left-0 w-full h-full gradient-blur opacity-50 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-full gradient-blur opacity-60 pointer-events-none" />
 
       <div className="max-w-6xl mx-auto px-6 py-12 relative z-10">
         {/* Header */}
