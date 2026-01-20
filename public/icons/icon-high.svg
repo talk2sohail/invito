@@ -1,34 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#6d28d9;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="120" fill="url(#grad1)" />
+  <!-- Privo.club Brand Colors: Black background matching brand design -->
+  <rect width="512" height="512" rx="120" fill="#000000" />
   
-  <!-- Gift Box Base -->
-  <rect x="140" y="260" width="232" height="180" rx="8" fill="white" />
+  <!-- Simple geometric gift box design matching brand -->
+  <!-- Box body - hexagonal shape -->
+  <path d="M 180 240 L 256 200 L 332 240 L 332 360 L 256 400 L 180 360 Z" fill="#E5E5E5" stroke="#E5E5E5" stroke-width="2" stroke-linejoin="miter"/>
   
-  <!-- Gift Box Top -->
-  <rect x="120" y="200" width="272" height="70" rx="8" fill="white" />
+  <!-- Box left face -->
+  <path d="M 180 240 L 180 360 L 256 400 L 256 280 Z" fill="#C0C0C0" />
   
-  <!-- Ribbon Vertical -->
-  <rect x="240" y="200" width="32" height="240" fill="#7c3aed" />
+  <!-- Box right face -->
+  <path d="M 256 280 L 256 400 L 332 360 L 332 240 Z" fill="#D8D8D8" />
   
-  <!-- Ribbon Horizontal -->
-  <rect x="120" y="225" width="272" height="20" fill="#7c3aed" />
+  <!-- Bow on top - diamond shape -->
+  <path d="M 256 160 L 226 180 L 256 200 L 286 180 Z" fill="#E5E5E5" />
   
-  <!-- Bow Left Loop -->
-  <ellipse cx="220" cy="160" rx="35" ry="45" fill="white" transform="rotate(-15 220 160)" />
+  <!-- Bow left ribbon -->
+  <path d="M 196 140 L 226 180 L 256 160 L 226 120 Z" fill="#C0C0C0" />
   
-  <!-- Bow Right Loop -->
-  <ellipse cx="292" cy="160" rx="35" ry="45" fill="white" transform="rotate(15 292 160)" />
+  <!-- Bow right ribbon -->
+  <path d="M 316 140 L 286 180 L 256 160 L 286 120 Z" fill="#D8D8D8" />
   
-  <!-- Bow Center -->
-  <circle cx="256" cy="170" r="20" fill="white" />
-  
-  <!-- Bow Ribbons -->
-  <path d="M 256 190 L 230 200 L 220 220" stroke="white" stroke-width="12" stroke-linecap="round" fill="none" />
-  <path d="M 256 190 L 282 200 L 292 220" stroke="white" stroke-width="12" stroke-linecap="round" fill="none" />
+  <!-- Center line from bow to box -->
+  <line x1="256" y1="200" x2="256" y2="240" stroke="#B0B0B0" stroke-width="4"/>
 </svg>

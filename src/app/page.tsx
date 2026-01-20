@@ -55,7 +55,9 @@ export default async function Home() {
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 bg-linear-to-br from-primary to-primary/80">
               <span className="text-xl font-bold text-white">P</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Privo.club</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Privo<span className="bg-primary px-2 py-0.5 rounded-md ml-0.5">.club</span>
+            </h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden sm:block text-right">
