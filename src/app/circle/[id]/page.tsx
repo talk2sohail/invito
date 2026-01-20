@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { getCircle } from "@/app/actions/circles";
+import { getCircle, getPendingMembers } from "@/app/actions/circles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, ArrowLeft, MoreHorizontal, Plus } from "lucide-react";
@@ -10,6 +10,8 @@ import Image from "next/image";
 import { InviteMemberDialog } from "@/components/circle/InviteMemberDialog";
 import { CircleSettingsMenu } from "@/components/circle/CircleSettingsMenu";
 import { CreateInviteDialog } from "@/components/invites/create-invite-dialog";
+import { PendingMembersList } from "@/components/circle/PendingMembersList";
+import { MembersList } from "@/components/circle/MembersList";
 
 interface CirclePageProps {
   params: Promise<{ id: string }>;
@@ -34,7 +36,46 @@ export default async function CirclePage({ params }: CirclePageProps) {
     );
   }
 
+  if (circle.currentUserStatus === "PENDING") {
+    return (
+      <main className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
+        <div className="absolute top-0 right-0 w-[50vw] h-[50vh] bg-linear-to-b from-purple-500/10 to-transparent pointer-events-none blur-3xl" />
+        
+        <div className="relative z-10 max-w-md w-full">
+          <div className="w-20 h-20 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center mx-auto mb-6">
+            <Users className="w-10 h-10" />
+          </div>
+          
+          <h1 className="text-3xl font-bold mb-2">Request Pending</h1>
+          <p className="text-muted-foreground mb-8 text-lg">
+            Your request to join <span className="font-bold text-foreground">{circle.name}</span> has been sent.
+            <br />
+            You'll be notified when {circle.owner.name} approves your request.
+          </p>
+          
+          <Card className="glass border-white/10 mb-8 p-4 flex items-center gap-4 text-left">
+             <div className="w-12 h-12 rounded-full bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-lg font-bold text-white">
+                {circle.owner.name?.charAt(0)}
+             </div>
+             <div>
+               <p className="font-bold">{circle.owner.name}</p>
+               <p className="text-sm text-muted-foreground">Circle Owner</p>
+             </div>
+          </Card>
+
+          <Link href="/">
+            <Button variant="outline" className="rounded-full w-full">Back to Dashboard</Button>
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   const isOwner = session?.user?.id === circle.ownerId;
+  let pendingMembers: any[] = [];
+  if (isOwner) {
+    pendingMembers = await getPendingMembers(circle.id);
+  }
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden pb-20">
@@ -122,43 +163,22 @@ export default async function CirclePage({ params }: CirclePageProps) {
                   Members ({circle.members.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                {circle.members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center gap-3 group"
-                  >
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/10">
-                      {member.user.image ? (
-                        <Image
-                          src={member.user.image}
-                          alt={member.user.name || "User"}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-muted flex items-center justify-center font-bold">
-                          {member.user.name?.[0]}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold">{member.user.name}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                        {member.role}
-                      </p>
-                    </div>
-                    {isOwner && member.userId !== session?.user?.id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+              <CardContent className="pt-6">
+                {/* Pending Members */}
+                {isOwner && (
+                  <PendingMembersList
+                    members={pendingMembers}
+                    circleId={circle.id}
+                  />
+                )}
+
+                {/* Active Members */}
+                <MembersList
+                  members={circle.members}
+                  currentUserId={session?.user?.id}
+                  isOwner={isOwner}
+                  circleId={circle.id}
+                />
               </CardContent>
             </Card>
           </div>

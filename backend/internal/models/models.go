@@ -29,7 +29,8 @@ type CircleMember struct {
 	ID       string    `db:"id" json:"id"`
 	CircleID string    `db:"circleId" json:"circleId"`
 	UserID   string    `db:"userId" json:"userId"`
-	Role     string    `db:"role" json:"role"` // OWNER, ADMIN, MEMBER
+	Role     string    `db:"role" json:"role"`     // OWNER, ADMIN, MEMBER
+	Status   string    `db:"status" json:"status"` // PENDING, ACTIVE
 	JoinedAt time.Time `db:"joinedAt" json:"joinedAt"`
 }
 
@@ -139,9 +140,10 @@ type InviteWithCount struct {
 
 type CircleDetailsResponse struct {
 	Circle
-	Owner   User              `json:"owner"`
-	Members []MemberWithUser  `json:"members"`
-	Invites []InviteWithCount `json:"invites"`
+	Owner             User              `json:"owner"`
+	Members           []MemberWithUser  `json:"members"`
+	Invites           []InviteWithCount `json:"invites"`
+	CurrentUserStatus string            `json:"currentUserStatus,omitempty"`
 }
 
 // Request Structs

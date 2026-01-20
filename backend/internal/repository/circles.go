@@ -22,7 +22,7 @@ func (r *circleRepository) CreateCircle(ctx context.Context, circle *models.Circ
 }
 
 func (r *circleRepository) AddMember(ctx context.Context, member *models.CircleMember) error {
-	_, err := r.db.ExecContext(ctx, QueryAddMember, member.ID, member.CircleID, member.UserID, member.Role, member.JoinedAt)
+	_, err := r.db.ExecContext(ctx, QueryAddMember, member.ID, member.CircleID, member.UserID, member.Role, member.Status, member.JoinedAt)
 	return err
 }
 
@@ -38,7 +38,7 @@ func (r *circleRepository) CreateCircleWithMember(ctx context.Context, circle *m
 		return err
 	}
 
-	_, err = tx.ExecContext(ctx, QueryAddMember, member.ID, member.CircleID, member.UserID, member.Role, member.JoinedAt)
+	_, err = tx.ExecContext(ctx, QueryAddMember, member.ID, member.CircleID, member.UserID, member.Role, member.Status, member.JoinedAt)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -212,3 +212,49 @@ func (r *circleRepository) GetCircleDetailsByID(ctx context.Context, id string) 
 		Invites: invites,
 	}, nil
 }
+
+func (r *circleRepository) GetPendingMembers(ctx context.Context, circleID string) ([]models.MemberWithUser, error) {
+	type MemberRow struct {
+		models.CircleMember
+		UserID    string  `db:"user.id"`
+		UserName  *string `db:"user.name"`
+		UserEmail *string `db:"user.email"`
+		UserImage *string `db:"user.image"`
+	}
+	var memberRows []MemberRow
+	if err := r.db.SelectContext(ctx, &memberRows, QueryGetPendingMembers, circleID); err != nil {
+		return nil, err
+	}
+
+	members := make([]models.MemberWithUser, len(memberRows))
+	for i, row := range memberRows {
+		members[i] = models.MemberWithUser{
+			CircleMember: row.CircleMember,
+			User: models.User{
+				ID:    row.UserID,
+				Name:  row.UserName,
+				Email: row.UserEmail,
+				Image: row.UserImage,
+			},
+		}
+	}
+	return members, nil
+}
+
+func (r *circleRepository) UpdateMemberStatus(ctx context.Context, circleID, userID, status string) error {
+	_, err := r.db.ExecContext(ctx, QueryUpdateMemberStatus, status, circleID, userID)
+	return err
+}
+
+func (r *circleRepository) RemoveMember(ctx context.Context, circleID, userID string) error {
+	_, err := r.db.ExecContext(ctx, QueryRemoveMember, circleID, userID)
+	return err
+}
+
+func (r *circleRepository) GetMemberStatus(ctx context.Context, circleID, userID string) (string, error) {
+	var status string
+	err := r.db.GetContext(ctx, &status, QueryGetMemberStatus, circleID, userID)
+	return status, err
+}
+
+

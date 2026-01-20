@@ -17,6 +17,10 @@ type CircleRepository interface {
 	GetCircleDetailsByID(ctx context.Context, id string) (*models.CircleDetailsResponse, error)
 	IsMember(ctx context.Context, circleID, userID string) (bool, error)
 	DeleteCircle(ctx context.Context, circleID string) error
+	GetPendingMembers(ctx context.Context, circleID string) ([]models.MemberWithUser, error)
+	UpdateMemberStatus(ctx context.Context, circleID, userID, status string) error
+	RemoveMember(ctx context.Context, circleID, userID string) error
+	GetMemberStatus(ctx context.Context, circleID, userID string) (string, error)
 }
 
 type InviteRepository interface {

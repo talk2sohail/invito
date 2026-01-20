@@ -65,14 +65,25 @@ export interface InviteWithRelations extends Invite {
   };
 }
 
+export interface Member {
+  id: string;
+  userId: string;
+  circleId: string;
+  user: User;
+  role: string;
+  status: "PENDING" | "ACTIVE";
+  joinedAt: string;
+}
+
 export interface CircleWithMembers extends Circle {
-  members: Array<{ id: string; userId: string; circleId: string; user: User; role: string; joinedAt: string }>;
+  members: Member[];
 }
 
 export interface CircleDetails extends Circle {
   owner: User;
-  members: Array<{ id: string; userId: string; circleId: string; user: User; role: string; joinedAt: string }>;
+  members: Member[];
   invites: Array<InviteWithRelations>;
+  currentUserStatus?: string;
 }
 
 // Alias for backward compatibility or clarity

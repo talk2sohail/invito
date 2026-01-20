@@ -81,3 +81,26 @@ export async function deleteCircle(circleId: string) {
   revalidatePath("/");
   return { success: true };
 }
+
+export async function getPendingMembers(circleId: string) {
+  try {
+    return await fetchFromBackend(`/circles/${circleId}/pending`);
+  } catch (e) {
+    console.error("Failed to fetch pending members:", e);
+    return [];
+  }
+}
+
+export async function approveMember(circleId: string, userId: string) {
+  await fetchFromBackend(`/circles/${circleId}/members/${userId}/approve`, {
+    method: "POST",
+  });
+  revalidatePath(`/circle/${circleId}`);
+}
+
+export async function removeMember(circleId: string, userId: string) {
+  await fetchFromBackend(`/circles/${circleId}/members/${userId}`, {
+    method: "DELETE",
+  });
+  revalidatePath(`/circle/${circleId}`);
+}

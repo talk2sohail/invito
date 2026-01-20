@@ -44,7 +44,7 @@ func TestCreateCircle(t *testing.T) {
 					WillReturnResult(sqlmock.NewResult(1, 1))
 				// Member Insert
 				mock.ExpectExec(`INSERT INTO "CircleMember"`).
-					WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "user-123", "OWNER", sqlmock.AnyArg()).
+					WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "user-123", "OWNER", "ACTIVE", sqlmock.AnyArg()).
 					WillReturnResult(sqlmock.NewResult(1, 1))
 				mock.ExpectCommit()
 			},
@@ -245,7 +245,7 @@ func TestJoinCircleByCode(t *testing.T) {
 
 				// Add Member
 				mock.ExpectExec(`INSERT INTO "CircleMember"`).
-					WithArgs(sqlmock.AnyArg(), "circle-1", "user-new", "MEMBER", sqlmock.AnyArg()).
+					WithArgs(sqlmock.AnyArg(), "circle-1", "user-new", "MEMBER", "PENDING", sqlmock.AnyArg()).
 					WillReturnResult(sqlmock.NewResult(1, 1))
 			},
 			expectedStatus: http.StatusOK,
@@ -464,51 +464,96 @@ func TestGetCircle(t *testing.T) {
 		userID         string // Requesting user
 		mockBehavior   func()
 		expectedStatus int
+		expectedBody   string
 	}{
 		{
-			name:   "Success",
+			name:   "Success - Active Member",
 			id:     "circle-1",
 			userID: "user-member",
 			mockBehavior: func() {
-				// 1. Get Circle
+				// 1. GetMemberStatus
+				rowsStatus := sqlmock.NewRows([]string{"status"}).AddRow("ACTIVE")
+				mock.ExpectQuery(`SELECT status FROM "CircleMember" WHERE "circleId" = \$1 AND "userId" = \$2`).
+					WithArgs("circle-1", "user-member").
+					WillReturnRows(rowsStatus)
+
+				// 2. Get Circle Details (GetCircleDetailsByID)
+				// a. Get Circle
 				rowsCircle := sqlmock.NewRows([]string{"id", "name", "inviteCode", "ownerId", "createdAt", "updatedAt"}).
 					AddRow("circle-1", "My Circle", "code-1", "owner-1", time.Now(), time.Now())
 				mock.ExpectQuery(`SELECT \* FROM "Circle" WHERE id = \$1`).
 					WithArgs("circle-1").
 					WillReturnRows(rowsCircle)
 
-				// 2. Get Owner
+				// b. Get Owner
 				rowsOwner := sqlmock.NewRows([]string{"id", "name"}).AddRow("owner-1", "Owner Name")
 				mock.ExpectQuery(`SELECT \* FROM "User" WHERE id = \$1`).
 					WithArgs("owner-1").
 					WillReturnRows(rowsOwner)
 
-				// 3. Get Members - MUST include requesting user (user-member) to pass auth check
+				// c. Get Members (Active)
 				rowsMembers := sqlmock.NewRows([]string{"id", "circleId", "userId", "role", "joinedAt", "user.id", "user.name", "user.email", "user.image"}).
 					AddRow("mem-1", "circle-1", "user-member", "MEMBER", time.Now(), "user-member", "Me", "me@x.com", nil)
 				mock.ExpectQuery(`SELECT cm\.\*, u\.id "user\.id"`).
 					WithArgs("circle-1").
 					WillReturnRows(rowsMembers)
 
-				// 4. Get Invites
-				// Actually SelectContext uses struct tags. The query is simple.
-				// Returning empty for simplicity
+				// d. Get Invites
 				mock.ExpectQuery(`SELECT i\.\*, .* FROM "Invite"`).
 					WithArgs("circle-1").
 					WillReturnRows(sqlmock.NewRows([]string{}))
 			},
 			expectedStatus: http.StatusOK,
+			expectedBody:   `"currentUserStatus":"ACTIVE"`,
 		},
 		{
-			name:   "Not Found",
-			id:     "circle-999",
-			userID: "user-123",
+			name:   "Success - Pending Member",
+			id:     "circle-1",
+			userID: "user-pending",
 			mockBehavior: func() {
+				// 1. GetMemberStatus
+				rowsStatus := sqlmock.NewRows([]string{"status"}).AddRow("PENDING")
+				mock.ExpectQuery(`SELECT status FROM "CircleMember" WHERE "circleId" = \$1 AND "userId" = \$2`).
+					WithArgs("circle-1", "user-pending").
+					WillReturnRows(rowsStatus)
+
+				// 2. Get Circle Details
+				// a. Get Circle
+				rowsCircle := sqlmock.NewRows([]string{"id", "name", "inviteCode", "ownerId", "createdAt", "updatedAt"}).
+					AddRow("circle-1", "My Circle", "code-1", "owner-1", time.Now(), time.Now())
 				mock.ExpectQuery(`SELECT \* FROM "Circle" WHERE id = \$1`).
-					WithArgs("circle-999").
-					WillReturnError(errors.New("no rows"))
+					WithArgs("circle-1").
+					WillReturnRows(rowsCircle)
+
+				// b. Get Owner
+				rowsOwner := sqlmock.NewRows([]string{"id", "name"}).AddRow("owner-1", "Owner Name")
+				mock.ExpectQuery(`SELECT \* FROM "User" WHERE id = \$1`).
+					WithArgs("owner-1").
+					WillReturnRows(rowsOwner)
+
+				// c. Get Members
+				mock.ExpectQuery(`SELECT cm\.\*, u\.id "user\.id"`).
+					WithArgs("circle-1").
+					WillReturnRows(sqlmock.NewRows([]string{}))
+
+				// d. Get Invites
+				mock.ExpectQuery(`SELECT i\.\*, .* FROM "Invite"`).
+					WithArgs("circle-1").
+					WillReturnRows(sqlmock.NewRows([]string{}))
 			},
-			expectedStatus: http.StatusNotFound,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `"currentUserStatus":"PENDING"`,
+		},
+		{
+			name:   "Unauthorized - Not a Member (or Not Found)",
+			id:     "circle-999",
+			userID: "user-stranger",
+			mockBehavior: func() {
+				mock.ExpectQuery(`SELECT status FROM "CircleMember" WHERE "circleId" = \$1 AND "userId" = \$2`).
+					WithArgs("circle-999", "user-stranger").
+					WillReturnError(errors.New("sql: no rows in result set"))
+			},
+			expectedStatus: http.StatusUnauthorized,
 		},
 	}
 
@@ -533,8 +578,256 @@ func TestGetCircle(t *testing.T) {
 			api.Handler(handler.GetCircle).ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.expectedBody != "" {
+				assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			}
+
 			if err := mock.ExpectationsWereMet(); err != nil {
 				t.Errorf("there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
+
+func TestGetPendingMembers(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error stubbing db: %s", err)
+	}
+	defer mockDB.Close()
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+	repo := repository.NewCircleRepository(sqlxDB)
+	handler := NewCirclesHandler(repo)
+
+	tests := []struct {
+		name           string
+		userID         string
+		circleID       string
+		mockBehavior   func()
+		expectedStatus int
+	}{
+		{
+			name:     "Success - Owner",
+			userID:   "user-owner",
+			circleID: "circle-1",
+			mockBehavior: func() {
+				// Verify Owner
+				rows := sqlmock.NewRows([]string{"ownerId"}).AddRow("user-owner")
+				mock.ExpectQuery(`SELECT "ownerId" FROM "Circle" WHERE id = \$1`).
+					WithArgs("circle-1").
+					WillReturnRows(rows)
+
+				// Get Pending Members
+				rowsMembers := sqlmock.NewRows([]string{"id", "circleId", "userId", "role", "status", "joinedAt", "user.id", "user.name", "user.email", "user.image"}).
+					AddRow("mem-1", "circle-1", "user-pending", "MEMBER", "PENDING", time.Now(), "user-pending", "Pending User", "pending@x.com", nil)
+				mock.ExpectQuery(`SELECT cm\.\*, u\.id "user\.id"`).
+					WithArgs("circle-1").
+					WillReturnRows(rowsMembers)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:     "Forbidden - Not Owner",
+			userID:   "user-other",
+			circleID: "circle-1",
+			mockBehavior: func() {
+				// Verify Owner
+				rows := sqlmock.NewRows([]string{"ownerId"}).AddRow("user-owner")
+				mock.ExpectQuery(`SELECT "ownerId" FROM "Circle" WHERE id = \$1`).
+					WithArgs("circle-1").
+					WillReturnRows(rows)
+			},
+			expectedStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", "/circles/"+tt.circleID+"/pending", nil)
+			if tt.userID != "" {
+				ctx := context.WithValue(req.Context(), auth.UserIDKey, tt.userID)
+				req = req.WithContext(ctx)
+			}
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", tt.circleID)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+			tt.mockBehavior()
+			rr := httptest.NewRecorder()
+			api.Handler(handler.GetPendingMembers).ServeHTTP(rr, req)
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
+
+func TestApproveMember(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error stubbing db: %s", err)
+	}
+	defer mockDB.Close()
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+	repo := repository.NewCircleRepository(sqlxDB)
+	handler := NewCirclesHandler(repo)
+
+	tests := []struct {
+		name           string
+		userID         string
+		circleID       string
+		targetUserID   string
+		mockBehavior   func()
+		expectedStatus int
+	}{
+		{
+			name:         "Success - Owner",
+			userID:       "user-owner",
+			circleID:     "circle-1",
+			targetUserID: "user-pending",
+			mockBehavior: func() {
+				// Verify Owner
+				rows := sqlmock.NewRows([]string{"ownerId"}).AddRow("user-owner")
+				mock.ExpectQuery(`SELECT "ownerId" FROM "Circle" WHERE id = \$1`).
+					WithArgs("circle-1").
+					WillReturnRows(rows)
+
+				// Update Status
+				mock.ExpectExec(`UPDATE "CircleMember" SET status = \$1 WHERE "circleId" = \$2 AND "userId" = \$3`).
+					WithArgs("ACTIVE", "circle-1", "user-pending").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:         "Forbidden - Not Owner",
+			userID:       "user-other",
+			circleID:     "circle-1",
+			targetUserID: "user-pending",
+			mockBehavior: func() {
+				rows := sqlmock.NewRows([]string{"ownerId"}).AddRow("user-owner")
+				mock.ExpectQuery(`SELECT "ownerId" FROM "Circle" WHERE id = \$1`).
+					WithArgs("circle-1").
+					WillReturnRows(rows)
+			},
+			expectedStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("POST", "/circles/"+tt.circleID+"/members/"+tt.targetUserID+"/approve", nil)
+			if tt.userID != "" {
+				ctx := context.WithValue(req.Context(), auth.UserIDKey, tt.userID)
+				req = req.WithContext(ctx)
+			}
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", tt.circleID)
+			rctx.URLParams.Add("userId", tt.targetUserID)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+			tt.mockBehavior()
+			rr := httptest.NewRecorder()
+			api.Handler(handler.ApproveMember).ServeHTTP(rr, req)
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
+
+func TestRemoveMember(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error stubbing db: %s", err)
+	}
+	defer mockDB.Close()
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+	repo := repository.NewCircleRepository(sqlxDB)
+	handler := NewCirclesHandler(repo)
+
+	tests := []struct {
+		name           string
+		userID         string
+		circleID       string
+		targetUserID   string
+		mockBehavior   func()
+		expectedStatus int
+	}{
+		{
+			name:         "Success - Owner Removing Member",
+			userID:       "user-owner",
+			circleID:     "circle-1",
+			targetUserID: "user-member",
+			mockBehavior: func() {
+				// Verify Owner
+				rows := sqlmock.NewRows([]string{"ownerId"}).AddRow("user-owner")
+				mock.ExpectQuery(`SELECT "ownerId" FROM "Circle" WHERE id = \$1`).
+					WithArgs("circle-1").
+					WillReturnRows(rows)
+
+				// Remove Member
+				mock.ExpectExec(`DELETE FROM "CircleMember" WHERE "circleId" = \$1 AND "userId" = \$2`).
+					WithArgs("circle-1", "user-member").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:         "Success - Member Leaving (Self Remove)",
+			userID:       "user-member",
+			circleID:     "circle-1",
+			targetUserID: "user-member",
+			mockBehavior: func() {
+				// Verify Owner (Not owner)
+				rows := sqlmock.NewRows([]string{"ownerId"}).AddRow("user-owner")
+				mock.ExpectQuery(`SELECT "ownerId" FROM "Circle" WHERE id = \$1`).
+					WithArgs("circle-1").
+					WillReturnRows(rows)
+
+				// Remove Member
+				mock.ExpectExec(`DELETE FROM "CircleMember" WHERE "circleId" = \$1 AND "userId" = \$2`).
+					WithArgs("circle-1", "user-member").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:         "Forbidden - Member Removing Another",
+			userID:       "user-member-1",
+			circleID:     "circle-1",
+			targetUserID: "user-member-2",
+			mockBehavior: func() {
+				rows := sqlmock.NewRows([]string{"ownerId"}).AddRow("user-owner")
+				mock.ExpectQuery(`SELECT "ownerId" FROM "Circle" WHERE id = \$1`).
+					WithArgs("circle-1").
+					WillReturnRows(rows)
+			},
+			expectedStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("DELETE", "/circles/"+tt.circleID+"/members/"+tt.targetUserID, nil)
+			if tt.userID != "" {
+				ctx := context.WithValue(req.Context(), auth.UserIDKey, tt.userID)
+				req = req.WithContext(ctx)
+			}
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", tt.circleID)
+			rctx.URLParams.Add("userId", tt.targetUserID)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+			tt.mockBehavior()
+			rr := httptest.NewRecorder()
+			api.Handler(handler.RemoveMember).ServeHTTP(rr, req)
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unfulfilled expectations: %s", err)
 			}
 		})
 	}

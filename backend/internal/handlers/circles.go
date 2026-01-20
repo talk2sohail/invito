@@ -30,6 +30,9 @@ func (h *CirclesHandler) RegisterProtectedRoutes(r chi.Router) {
 	r.Method("POST", "/{id}/regenerate", api.Handler(h.RegenerateInviteCode))
 	r.Method("POST", "/join/{code}", api.Handler(h.JoinCircleByCode))
 	r.Method("DELETE", "/{id}", api.Handler(h.DeleteCircle))
+	r.Method("GET", "/{id}/pending", api.Handler(h.GetPendingMembers))
+	r.Method("POST", "/{id}/members/{userId}/approve", api.Handler(h.ApproveMember))
+	r.Method("DELETE", "/{id}/members/{userId}", api.Handler(h.RemoveMember))
 }
 
 func (h *CirclesHandler) RegisterPublicRoutes(r chi.Router) {
@@ -89,6 +92,7 @@ func (h *CirclesHandler) JoinCircleByCode(w http.ResponseWriter, r *http.Request
 		CircleID: circle.ID,
 		UserID:   userID,
 		Role:     "MEMBER",
+		Status:   "PENDING",
 		JoinedAt: time.Now(),
 	}
 
@@ -137,6 +141,7 @@ func (h *CirclesHandler) CreateCircle(w http.ResponseWriter, r *http.Request) er
 		CircleID: circleID,
 		UserID:   userID,
 		Role:     "OWNER",
+		Status:   "ACTIVE",
 		JoinedAt: time.Now(),
 	}
 
@@ -175,32 +180,27 @@ func (h *CirclesHandler) GetCircle(w http.ResponseWriter, r *http.Request) error
 		return api.ErrBadRequest("Circle ID required")
 	}
 
-	// Fetch detailed circle including membership check
+	// 1. Check Membership Status efficiently
+	status, err := h.Repo.GetMemberStatus(r.Context(), circleID, userID)
+	if err != nil {
+		// If error is not found, it means they are not a member
+		return api.ErrUnauthorized("You are not a member of this circle")
+	}
+
+	// 2. Fetch Details
 	circleDetails, err := h.Repo.GetCircleDetailsByID(r.Context(), circleID)
 	if err != nil {
 		return api.ErrNotFound("Circle not found")
 	}
 
-	// Check if user is authorized (member or owner)
-	// The repo 'GetCircleDetailsByID' logic (from previous chats) fetches invitees too.
-	// But strictly, we should ensure the user is part of it.
-	// The query logic aggregates data. If the user is NOT a member/owner,
-	// should they see it? Logic in repo or service layer?
-	// Assuming repo handles retrieval, but access control:
-	isMember := false
-	if circleDetails.Circle.OwnerID == userID {
-		isMember = true
-	} else {
-		for _, member := range circleDetails.Members {
-			if member.User.ID == userID {
-				isMember = true
-				break
-			}
-		}
-	}
+	// 3. Handle Views based on Status
+	circleDetails.CurrentUserStatus = status
 
-	if !isMember {
-		return api.ErrUnauthorized("You are not a member of this circle")
+	if status == "PENDING" {
+		// Filter out sensitive data for pending members
+		circleDetails.Members = []models.MemberWithUser{}
+		circleDetails.Invites = []models.InviteWithCount{}
+		// We still return the circle info and owner info so they can see what they are waiting for
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -260,6 +260,95 @@ func (h *CirclesHandler) DeleteCircle(w http.ResponseWriter, r *http.Request) er
 	}
 
 	if err := h.Repo.DeleteCircle(r.Context(), circleID); err != nil {
+		return api.ErrInternal(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *CirclesHandler) GetPendingMembers(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		return api.ErrUnauthorized("Unauthorized")
+	}
+
+	circleID := chi.URLParam(r, "id")
+	if circleID == "" {
+		return api.ErrBadRequest("Circle ID required")
+	}
+
+	// Verify Owner
+	ownerID, err := h.Repo.GetCircleOwner(r.Context(), circleID)
+	if err != nil {
+		return api.ErrNotFound("Circle not found")
+	}
+	if ownerID != userID {
+		return api.ErrForbidden("Only the owner can view pending members")
+	}
+
+	members, err := h.Repo.GetPendingMembers(r.Context(), circleID)
+	if err != nil {
+		return api.ErrInternal(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(members)
+}
+
+func (h *CirclesHandler) ApproveMember(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		return api.ErrUnauthorized("Unauthorized")
+	}
+
+	circleID := chi.URLParam(r, "id")
+	targetUserID := chi.URLParam(r, "userId")
+	if circleID == "" || targetUserID == "" {
+		return api.ErrBadRequest("Circle ID and User ID required")
+	}
+
+	// Verify Owner
+	ownerID, err := h.Repo.GetCircleOwner(r.Context(), circleID)
+	if err != nil {
+		return api.ErrNotFound("Circle not found")
+	}
+	if ownerID != userID {
+		return api.ErrForbidden("Only the owner can approve members")
+	}
+
+	if err := h.Repo.UpdateMemberStatus(r.Context(), circleID, targetUserID, "ACTIVE"); err != nil {
+		return api.ErrInternal(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *CirclesHandler) RemoveMember(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		return api.ErrUnauthorized("Unauthorized")
+	}
+
+	circleID := chi.URLParam(r, "id")
+	targetUserID := chi.URLParam(r, "userId")
+	if circleID == "" || targetUserID == "" {
+		return api.ErrBadRequest("Circle ID and User ID required")
+	}
+
+	// Verify Owner
+	ownerID, err := h.Repo.GetCircleOwner(r.Context(), circleID)
+	if err != nil {
+		return api.ErrNotFound("Circle not found")
+	}
+
+	// Allow owner to remove anyone, OR user to remove themselves (leave)
+	if ownerID != userID && targetUserID != userID {
+		return api.ErrForbidden("You are not authorized to remove this member")
+	}
+
+	if err := h.Repo.RemoveMember(r.Context(), circleID, targetUserID); err != nil {
 		return api.ErrInternal(err)
 	}
 

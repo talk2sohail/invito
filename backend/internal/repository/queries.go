@@ -19,18 +19,18 @@ const (
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	QueryAddMember = `
-		INSERT INTO "CircleMember" (id, "circleId", "userId", role, "joinedAt")
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO "CircleMember" (id, "circleId", "userId", role, status, "joinedAt")
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 	QueryListCircles = `
 		SELECT 
 			c.*,
 			owner.id as owner_id, owner.name as owner_name, owner.email as owner_email, owner.image as owner_image,
-			(SELECT count(*)::int FROM "CircleMember" WHERE "circleId" = c.id) as member_count
+			(SELECT count(*)::int FROM "CircleMember" WHERE "circleId" = c.id AND status = 'ACTIVE') as member_count
 		FROM "Circle" c
 		JOIN "CircleMember" cm_filter ON c.id = cm_filter."circleId"
 		JOIN "User" owner ON c."ownerId" = owner.id
-		WHERE cm_filter."userId" = $1
+		WHERE cm_filter."userId" = $1 AND cm_filter.status = 'ACTIVE'
 	`
 	QueryGetCircleByID         = `SELECT * FROM "Circle" WHERE id = $1`
 	QueryGetCircleOwner        = `SELECT "ownerId" FROM "Circle" WHERE id = $1`
@@ -40,18 +40,18 @@ const (
 		SELECT 
 			c.*,
 			owner.id as owner_id, owner.name as owner_name, owner.email as owner_email, owner.image as owner_image,
-			(SELECT count(*)::int FROM "CircleMember" WHERE "circleId" = c.id) as member_count
+			(SELECT count(*)::int FROM "CircleMember" WHERE "circleId" = c.id AND status = 'ACTIVE') as member_count
 		FROM "Circle" c
 		JOIN "User" owner ON c."ownerId" = owner.id
 		WHERE c."inviteCode" = $1
 	`
-	QueryIsMember         = `SELECT count(*) FROM "CircleMember" WHERE "circleId" = $1 AND "userId" = $2`
+	QueryIsMember         = `SELECT count(*) FROM "CircleMember" WHERE "circleId" = $1 AND "userId" = $2 AND status = 'ACTIVE'`
 	QueryDeleteCircle     = `DELETE FROM "Circle" WHERE id = $1`
 	QueryGetCircleMembers = `
 		SELECT cm.*, u.id "user.id", u.name "user.name", u.email "user.email", u.image "user.image"
 		FROM "CircleMember" cm
 		JOIN "User" u ON cm."userId" = u.id
-		WHERE cm."circleId" = $1
+		WHERE cm."circleId" = $1 AND cm.status = 'ACTIVE'
 	`
 	QueryGetCircleEvents = `
 		SELECT i.*, 
@@ -60,6 +60,15 @@ const (
 		WHERE i."circleId" = $1
 		ORDER BY i."eventDate" DESC
 	`
+	QueryGetPendingMembers = `
+		SELECT cm.*, u.id "user.id", u.name "user.name", u.email "user.email", u.image "user.image"
+		FROM "CircleMember" cm
+		JOIN "User" u ON cm."userId" = u.id
+		WHERE cm."circleId" = $1 AND cm.status = 'PENDING'
+	`
+	QueryUpdateMemberStatus = `UPDATE "CircleMember" SET status = $1 WHERE "circleId" = $2 AND "userId" = $3`
+	QueryRemoveMember       = `DELETE FROM "CircleMember" WHERE "circleId" = $1 AND "userId" = $2`
+	QueryGetMemberStatus    = `SELECT status FROM "CircleMember" WHERE "circleId" = $1 AND "userId" = $2`
 
 	// Invite Queries
 	QueryCreateInvite = `
@@ -99,7 +108,7 @@ const (
         SELECT cm.*, u.id "user.id", u.name "user.name", u.email "user.email", u.image "user.image"
         FROM "CircleMember" cm
         JOIN "User" u ON cm."userId" = u.id
-        WHERE cm."circleId" = $1
+        WHERE cm."circleId" = $1 AND cm.status = 'ACTIVE'
     `
 	QueryGetInviteDetails_RSVPs = `
         SELECT r.*, u.id "user.id", u.name "user.name", u.email "user.email", u.image "user.image"
