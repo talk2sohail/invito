@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { getCircle, getPendingMembers } from "@/app/actions/circles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, ArrowLeft, MoreHorizontal, Plus } from "lucide-react";
+import { Calendar, Users, ArrowLeft, MoreHorizontal, Plus, MapPin } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -12,6 +12,8 @@ import { CircleSettingsMenu } from "@/components/circle/CircleSettingsMenu";
 import { CreateInviteDialog } from "@/components/invites/create-invite-dialog";
 import { PendingMembersList } from "@/components/circle/PendingMembersList";
 import { MembersList } from "@/components/circle/MembersList";
+import { MembersListDialog } from "@/components/circle/MembersListDialog";
+import { MemberAvatarStack } from "@/components/circle/MemberAvatarStack";
 
 interface CirclePageProps {
   params: Promise<{ id: string }>;
@@ -23,14 +25,16 @@ export default async function CirclePage({ params }: CirclePageProps) {
 
   if (!circle) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-4xl font-bold mb-4">Circle Not Found</h1>
-        <p className="text-muted-foreground mb-8">
-          This circle doesn&#39;t exist or you don&#39;t have permission to view
-          it.
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
+        <div className="w-24 h-24 rounded-full bg-muted/20 flex items-center justify-center mb-6">
+          <Users className="w-10 h-10 text-muted-foreground" />
+        </div>
+        <h1 className="text-4xl font-bold mb-4 tracking-tight">Circle Not Found</h1>
+        <p className="text-muted-foreground mb-8 text-lg max-w-md">
+          This circle doesn&#39;t exist or you don&#39;t have permission to view it.
         </p>
         <Link href="/">
-          <Button className="rounded-full">Return Home</Button>
+          <Button className="rounded-full px-8" size="lg">Return Home</Button>
         </Link>
       </div>
     );
@@ -39,32 +43,35 @@ export default async function CirclePage({ params }: CirclePageProps) {
   if (circle.currentUserStatus === "PENDING") {
     return (
       <main className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
-        <div className="absolute top-0 right-0 w-[50vw] h-[50vh] bg-linear-to-b from-purple-500/10 to-transparent pointer-events-none blur-3xl" />
+        <div className="absolute top-0 right-0 w-[50vw] h-[50vh] bg-purple-500/20 blur-[120px] pointer-events-none rounded-full" />
+        <div className="absolute bottom-0 left-0 w-[40vw] h-[40vh] bg-blue-500/10 blur-[100px] pointer-events-none rounded-full" />
         
-        <div className="relative z-10 max-w-md w-full">
-          <div className="w-20 h-20 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center mx-auto mb-6">
+        <div className="relative z-10 max-w-md w-full animate-fade-in-up">
+          <div className="w-24 h-24 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center mx-auto mb-8 ring-1 ring-yellow-500/20">
             <Users className="w-10 h-10" />
           </div>
           
-          <h1 className="text-3xl font-bold mb-2">Request Pending</h1>
-          <p className="text-muted-foreground mb-8 text-lg">
-            Your request to join <span className="font-bold text-foreground">{circle.name}</span> has been sent.
+          <h1 className="text-3xl font-bold mb-3 tracking-tight">Request Pending</h1>
+          <p className="text-muted-foreground mb-10 text-lg leading-relaxed">
+            Your request to join <span className="font-semibold text-foreground">{circle.name}</span> has been sent.
             <br />
-            You'll be notified when {circle.owner.name} approves your request.
+            You'll be notified when the owner approves your request.
           </p>
           
-          <Card className="glass border-white/10 mb-8 p-4 flex items-center gap-4 text-left">
-             <div className="w-12 h-12 rounded-full bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-lg font-bold text-white">
+          <div className="glass p-6 rounded-2xl mb-8 flex items-center gap-4 text-left hover:bg-white/5 transition-colors">
+             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-xl font-bold text-white shadow-lg">
                 {circle.owner.name?.charAt(0)}
              </div>
              <div>
-               <p className="font-bold">{circle.owner.name}</p>
-               <p className="text-sm text-muted-foreground">Circle Owner</p>
+               <p className="font-bold text-lg">{circle.owner.name}</p>
+               <p className="text-sm text-purple-400 font-medium">Circle Owner</p>
              </div>
-          </Card>
+          </div>
 
           <Link href="/">
-            <Button variant="outline" className="rounded-full w-full">Back to Dashboard</Button>
+            <Button variant="outline" className="rounded-full w-full h-12 text-base border-white/10 hover:bg-white/5 hover:text-white transition-all">
+                Back to Dashboard
+            </Button>
           </Link>
         </div>
       </main>
@@ -77,21 +84,28 @@ export default async function CirclePage({ params }: CirclePageProps) {
     pendingMembers = await getPendingMembers(circle.id);
   }
 
-  return (
-    <main className="min-h-screen bg-background relative overflow-hidden pb-20">
-      {/* Background radial gradients */}
-      <div className="absolute top-0 right-0 w-[50vw] h-[50vh] bg-linear-to-b from-purple-500/10 to-transparent pointer-events-none blur-3xl" />
+  const hosts = circle.members.filter(m => m.role === 'OWNER');
+  const regularMembers = circle.members.filter(m => m.role !== 'OWNER');
 
-      <div className="max-w-5xl mx-auto px-6 pt-12 relative z-10">
-        <nav className="flex items-center justify-between mb-8">
+  return (
+    <main className="min-h-screen bg-black text-white relative isolate overflow-x-hidden pb-32 selection:bg-purple-500/30">
+        {/* Ambient Background */}
+        <div className="fixed inset-0 min-h-screen pointer-events-none -z-10">
+            <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] mix-blend-screen opacity-50" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] mix-blend-screen opacity-40" />
+        </div>
+
+      <div className="max-w-6xl mx-auto px-6 pt-10 relative z-10">
+        {/* Navigation */}
+        <nav className="flex items-center justify-between mb-12 animate-fade-in-up">
           <Link
             href="/"
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group"
+            className="flex items-center gap-3 text-muted-foreground hover:text-white transition-all group py-2"
           >
-            <div className="w-8 h-8 rounded-full flex items-center justify-center group-hover:bg-white/5 transition-colors">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/5 group-hover:border-white/20 group-hover:bg-white/10 transition-all">
               <ArrowLeft className="w-5 h-5" />
             </div>
-            <span className="font-medium">Back to Dashboard</span>
+            <span className="font-medium">Dashboard</span>
           </Link>
           <div className="flex gap-2">
             {isOwner && (
@@ -103,39 +117,46 @@ export default async function CirclePage({ params }: CirclePageProps) {
           </div>
         </nav>
 
-        {/* Circle Header */}
-        <section className="mb-12 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-16 h-16 rounded-3xl bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-3xl font-bold text-white shadow-xl shadow-purple-500/20">
+        {/* Hero Section */}
+        <section className="mb-16 flex flex-col md:flex-row items-start md:items-end justify-between gap-8 animate-fade-in-up delay-100">
+          <div className="relative group">
+            <div className="absolute -inset-4 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-[2.5rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2rem] bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-5xl sm:text-6xl font-bold text-white shadow-2xl shadow-purple-900/40 ring-1 ring-white/10">
                 {circle.name.charAt(0)}
               </div>
               <div>
-                <h1 className="text-4xl font-extrabold tracking-tight">
+                <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-balance leading-[1.1] mb-3">
                   {circle.name}
                 </h1>
-                <p className="text-muted-foreground font-medium flex items-center gap-2">
-                  Created by {circle.owner.name} •{" "}
-                  {format(new Date(circle.createdAt), "MMMM yyyy")}
-                </p>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground font-medium text-lg">
+                  <span className="flex items-center gap-2">
+                     <span className="w-2 h-2 rounded-full bg-purple-500" />
+                    Created by <span className="text-foreground">{circle.owner.name}</span>
+                  </span>
+                  <span className="w-1 h-1 rounded-full bg-white/20 hidden sm:block" />
+                  <span>
+                    {format(new Date(circle.createdAt), "MMMM d, yyyy")}
+                  </span>
+                </div>
               </div>
             </div>
             {circle.description && (
-              <p className="text-lg text-foreground/80 mt-4 max-w-2xl leading-relaxed">
+              <p className="text-xl text-zinc-400 mt-8 max-w-3xl leading-relaxed text-balance">
                 {circle.description}
               </p>
             )}
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-4 w-full md:w-auto">
             {isOwner && (
               <CreateInviteDialog
                 circles={[{ id: circle.id, name: circle.name }]}
                 defaultCircleId={circle.id}
               >
-                <Button className="rounded-full h-12 px-6 font-bold shadow-lg shadow-primary/25">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Invite
+                <Button size="lg" className="rounded-full h-14 px-8 font-bold shadow-lg shadow-purple-500/20 bg-white text-black hover:bg-zinc-200 transition-all flex-1 md:flex-none">
+                  <Plus className="w-5 h-5 mr-2" />
+                  New Event
                 </Button>
               </CreateInviteDialog>
             )}
@@ -145,25 +166,26 @@ export default async function CirclePage({ params }: CirclePageProps) {
               inviteCode={circle.inviteCode}
               isOwner={isOwner}
             >
-              <Button className="rounded-full h-12 px-6 font-bold shadow-lg shadow-primary/25">
-                <Plus className="w-4 h-4 mr-2" />
+              <Button size="lg" variant="outline" className="rounded-full h-14 px-8 font-bold border-white/10 bg-white/5 hover:bg-white/10 hover:text-white transition-all flex-1 md:flex-none">
+                <Users className="w-5 h-5 mr-3" />
                 Invite Members
               </Button>
             </InviteMemberDialog>
           </div>
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Members Column */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card className="rounded-[2.5rem] glass border-white/10 overflow-hidden shadow-xl">
-              <CardHeader className="pb-4 bg-white/5 border-b border-white/5 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-500" />
-                  Members ({circle.members.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 animate-fade-in-up delay-200">
+          {/* Members Column - Takes up 4 columns on large screens */}
+          <div className="lg:col-span-4 space-y-6">
+            <div className="glass rounded-[2rem] overflow-hidden p-1 flex flex-col border-white/10 bg-black/40 h-fit">
+              <div className="p-6 pb-2">
+                 <h3 className="text-xl font-bold flex items-center gap-2 mb-1">
+                    <Users className="w-5 h-5 text-purple-400" />
+                    Members
+                 </h3>
+              </div>
+              
+              <CardContent className="p-4 pt-2 space-y-6">
                 {/* Pending Members */}
                 {isOwner && (
                   <PendingMembersList
@@ -172,74 +194,110 @@ export default async function CirclePage({ params }: CirclePageProps) {
                   />
                 )}
 
-                {/* Active Members */}
-                <MembersList
-                  members={circle.members}
-                  currentUserId={session?.user?.id}
-                  isOwner={isOwner}
-                  circleId={circle.id}
-                />
+                {/* Hosts List */}
+                <div>
+                   <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 pl-2">Host</h4>
+                   <MembersList
+                    members={hosts}
+                    currentUserId={session?.user?.id}
+                    isOwner={isOwner}
+                    circleId={circle.id}
+                  />
+                </div>
+
+                {/* Regular Members Avatar Stack */}
+                {regularMembers.length > 0 && (
+                   <div>
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 pl-2">Members</h4>
+                    <MemberAvatarStack
+                      members={regularMembers}
+                      circleId={circle.id}
+                      currentUserId={session?.user?.id}
+                      isOwner={isOwner}
+                    />
+                  </div>
+                )}
               </CardContent>
-            </Card>
+            </div>
           </div>
 
-          {/* Events Column */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between">
+          {/* Events Column - Takes up 8 columns */}
+          <div className="lg:col-span-8 space-y-6">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-2xl font-bold flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-500" />
-                Circle Events
+                <Calendar className="w-6 h-6 text-blue-400" />
+                Upcoming Events
               </h3>
             </div>
 
             {circle.invites.length === 0 ? (
-              <div className="flex flex-col items-center">
-                <EmptyState
-                  icon={Calendar}
-                  title="No events yet"
-                  description="Start planning your first gathering for this circle!"
-                />
+              <div className="glass rounded-[2rem] p-12 text-center border-white/5 bg-white/5 flex flex-col items-center justify-center min-h-[300px]">
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6 ring-1 ring-white/10">
+                  <Calendar className="w-10 h-10 text-muted-foreground/50" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">No events yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto mb-8">
+                  Get the gathering started by creating the first event for this circle.
+                </p>
                 {isOwner && (
-                  <div className="mt-6">
                     <CreateInviteDialog
                       circles={[{ id: circle.id, name: circle.name }]}
                       defaultCircleId={circle.id}
-                    />
-                  </div>
+                    >
+                        <Button className="rounded-full h-12 px-6">Create Event</Button>
+                    </CreateInviteDialog>
                 )}
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 {circle.invites.map((invite) => (
                   <Link
                     key={invite.id}
                     href={`/event/${invite.id}`}
-                    className="block"
+                    className="group block h-full"
                   >
-                    <div className="glass p-6 rounded-3xl border-white/5 hover:border-blue-500/30 hover:bg-white/5 transition-all cursor-pointer flex items-center justify-between group">
-                      <div className="flex items-center gap-5">
-                        <div className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-white/5 border border-white/10">
-                          <span className="text-xs text-muted-foreground uppercase font-bold">
-                            {format(new Date(invite.eventDate), "MMM")}
-                          </span>
-                          <span className="text-xl font-bold">
-                            {format(new Date(invite.eventDate), "d")}
-                          </span>
+                    <div className="glass h-full p-5 rounded-[2rem] border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+                       <div className="absolute top-0 right-0 p-5 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <ArrowLeft className="w-5 h-5 rotate-[135deg] text-white/50" />
+                       </div>
+
+                      <div className="flex flex-col h-full justify-between gap-6">
+                        <div className="flex items-start justify-between">
+                            <div className="flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-white/10 border border-white/10 group-hover:border-purple-500/50 group-hover:bg-purple-500/10 transition-colors">
+                              <span className="text-xs text-purple-300 uppercase font-bold tracking-wider">
+                                {format(new Date(invite.eventDate), "MMM")}
+                              </span>
+                              <span className="text-2xl font-bold text-white">
+                                {format(new Date(invite.eventDate), "d")}
+                              </span>
+                            </div>
                         </div>
+                        
                         <div>
-                          <h4 className="font-bold text-lg group-hover:text-blue-400 transition-colors">
+                          <h4 className="font-bold text-xl mb-2 line-clamp-1 group-hover:text-purple-300 transition-colors">
                             {invite.title}
                           </h4>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(invite.eventDate), "h:mm a")} •{" "}
-                            {invite.location || "TBD"}
-                          </p>
+                          <div className="space-y-1.5">
+                              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-zinc-500" />
+                                {format(new Date(invite.eventDate), "EEEE, h:mm a")}
+                              </p>
+                              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                <MapPin className="w-4 h-4 text-zinc-500" />
+                                {invite.location || "Location TBD"}
+                              </p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right hidden sm:block">
-                          <span className="text-xs font-bold bg-white/10 px-2 py-1 rounded-full">
-                            {invite._count?.rsvps || 0} Guests
+
+                        <div className="pt-4 mt-2 border-t border-white/5 flex items-center justify-between">
+                          <div className="flex -space-x-3">
+                              {/* Placeholder for avatars, or could render rsvp count visually */}
+                               <div className="w-8 h-8 rounded-full bg-zinc-800 border border-black flex items-center justify-center text-[10px] font-bold">
+                                  +{invite._count?.rsvps || 0}
+                               </div>
+                          </div>
+                          <span className="text-xs font-bold text-zinc-400 bg-white/5 px-3 py-1.5 rounded-full group-hover:bg-white/10 transition-colors">
+                            View Details
                           </span>
                         </div>
                       </div>

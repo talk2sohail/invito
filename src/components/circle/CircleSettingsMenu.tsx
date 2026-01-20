@@ -28,16 +28,18 @@ export function CircleSettingsMenu({ circleId, circleName }: CircleSettingsMenuP
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full border border-white/5 glass"
+            className="rounded-full border border-white/5 glass text-zinc-400 hover:text-white"
           >
             <Settings className="w-5 h-5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10 text-white">
-          <DropdownMenuLabel>Settings</DropdownMenuLabel>
+        <DropdownMenuContent align="end" className="bg-zinc-950/90 border-white/10 text-white backdrop-blur-xl shadow-xl w-56">
+          <DropdownMenuLabel className="text-zinc-400 font-normal text-xs uppercase tracking-widest px-3 py-2">
+            Circle Settings
+          </DropdownMenuLabel>
           <DropdownMenuSeparator className="bg-white/10" />
           <DropdownMenuItem
-            className="text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer flex items-center gap-2"
+            className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer flex items-center gap-2 p-3"
             onClick={() => setShowDeleteDialog(true)}
           >
             <Trash className="w-4 h-4" />

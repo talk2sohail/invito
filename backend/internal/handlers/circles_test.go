@@ -233,7 +233,7 @@ func TestJoinCircleByCode(t *testing.T) {
 				rows := sqlmock.NewRows([]string{"id", "inviteCode", "ownerId", "owner_id", "owner_name", "owner_email", "owner_image", "member_count"}).
 					AddRow("circle-1", "valid-code", "owner-1", "owner-1", "Owner Name", "owner@example.com", nil, 5)
 
-				mock.ExpectQuery(`SELECT c\.\*, owner\.id as owner_id`).
+				mock.ExpectQuery(`SELECT\s+c\.\*,\s+owner\.id\s+as\s+owner_id`).
 					WithArgs("valid-code").
 					WillReturnRows(rows)
 
@@ -259,7 +259,7 @@ func TestJoinCircleByCode(t *testing.T) {
 				rows := sqlmock.NewRows([]string{"id", "inviteCode", "ownerId", "owner_id", "owner_name", "owner_email", "owner_image", "member_count"}).
 					AddRow("circle-1", "valid-code", "owner-1", "owner-1", "Owner Name", "owner@example.com", nil, 5)
 
-				mock.ExpectQuery(`SELECT c\.\*, owner\.id as owner_id`).
+				mock.ExpectQuery(`SELECT\s+c\.\*,\s+owner\.id\s+as\s+owner_id`).
 					WithArgs("valid-code").
 					WillReturnRows(rows)
 
@@ -276,7 +276,7 @@ func TestJoinCircleByCode(t *testing.T) {
 			userID: "user-new",
 			code:   "bad-code",
 			mockBehavior: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery(`SELECT c\.\*, owner\.id as owner_id`).
+				mock.ExpectQuery(`SELECT\s+c\.\*,\s+owner\.id\s+as\s+owner_id`).
 					WithArgs("bad-code").
 					WillReturnError(errors.New("no rows"))
 			},
