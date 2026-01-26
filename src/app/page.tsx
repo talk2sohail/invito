@@ -322,7 +322,21 @@ export default async function Home() {
 									<Link href="/auth/signin">
 										<Button
 											size="lg"
-											className="rounded-full px-16 h-16 text-lg font-bold shadow-2xl shadow-primary/40 hover:scale-105 active:scale-95 transition-all duration-300 group-hover:shadow-purple-500/60"
+											className="
+												rounded-full 
+												px-6 sm:px-12 md:px-16 
+												h-12 sm:h-14 md:h-16 
+												text-sm sm:text-base md:text-lg 
+												font-bold 
+												shadow-xl md:shadow-2xl 
+												shadow-primary/40 
+												hover:scale-105 
+												active:scale-95 
+												transition-all 
+												duration-300 
+												group-hover:shadow-purple-500/60
+												whitespace-nowrap
+											"
 										>
 											Get Started Free
 											<span className="ml-2 inline-block group-hover:translate-x-1 transition-transform">
