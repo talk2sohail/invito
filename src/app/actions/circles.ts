@@ -115,12 +115,63 @@ export async function joinCircleByCode(code: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
+  // First check if it's a limited invite link
+  const limitedLink = await prisma.circleInviteLink.findUnique({
+    where: { code },
+    include: { circle: { include: { members: true } } },
+  });
+
+  if (limitedLink) {
+    // Check if usage limit is reached
+    if (limitedLink.usedCount >= limitedLink.maxUses) {
+      throw new Error("This invite link has reached its usage limit");
+    }
+
+    const isMember = limitedLink.circle.members.some(
+      (member) => member.userId === session.user.id,
+    );
+
+    if (isMember) {
+      return {
+        success: true,
+        circleId: limitedLink.circleId,
+        alreadyMember: true,
+      };
+    }
+
+    // Add member with ACTIVE status and increment usage count
+    await prisma.$transaction([
+      prisma.circleMember.create({
+        data: {
+          userId: session.user.id,
+          circleId: limitedLink.circleId,
+          role: "MEMBER",
+          status: "ACTIVE",
+        },
+      }),
+      prisma.circleInviteLink.update({
+        where: { id: limitedLink.id },
+        data: { usedCount: { increment: 1 } },
+      }),
+    ]);
+
+    revalidatePath(`/circle/${limitedLink.circleId}`);
+    revalidatePath("/");
+    return { success: true, circleId: limitedLink.circleId };
+  }
+
+  // Check general invite code
   const circle = await prisma.circle.findUnique({
     where: { inviteCode: code },
     include: { members: true },
   });
 
   if (!circle) throw new Error("Invalid invite code");
+
+  // Check if general invite link is enabled
+  if (!circle.isInviteLinkEnabled) {
+    throw new Error("This invite link has been disabled");
+  }
 
   const isMember = circle.members.some(
     (member) => member.userId === session.user.id,
@@ -130,15 +181,13 @@ export async function joinCircleByCode(code: string) {
     return { success: true, circleId: circle.id, alreadyMember: true };
   }
 
-  await prisma.circle.update({
-    where: { id: circle.id },
+  // Add member with PENDING status for general invite link
+  await prisma.circleMember.create({
     data: {
-      members: {
-        create: {
-          userId: session.user.id,
-          role: "MEMBER",
-        },
-      },
+      userId: session.user.id,
+      circleId: circle.id,
+      role: "MEMBER",
+      status: "PENDING",
     },
   });
 
@@ -148,6 +197,30 @@ export async function joinCircleByCode(code: string) {
 }
 
 export async function getCircleByInviteCode(code: string) {
+  // First check limited invite link
+  const limitedLink = await prisma.circleInviteLink.findUnique({
+    where: { code },
+    include: {
+      circle: {
+        include: {
+          owner: true,
+          _count: {
+            select: { members: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (limitedLink) {
+    // Check if link is still valid
+    if (limitedLink.usedCount >= limitedLink.maxUses) {
+      return null;
+    }
+    return limitedLink.circle;
+  }
+
+  // Check general invite code
   const circle = await prisma.circle.findUnique({
     where: { inviteCode: code },
     include: {
@@ -180,4 +253,98 @@ export async function deleteCircle(circleId: string) {
 
   revalidatePath("/");
   return { success: true };
+}
+
+export async function createLimitedInviteLink(
+  circleId: string,
+  maxUses: number,
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const circle = await prisma.circle.findUnique({
+    where: { id: circleId },
+  });
+
+  if (!circle || circle.ownerId !== session.user.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const { nanoid } = await import("nanoid");
+  const code = nanoid(10);
+
+  const inviteLink = await prisma.circleInviteLink.create({
+    data: {
+      circleId,
+      code,
+      maxUses,
+      creatorId: session.user.id,
+    },
+  });
+
+  revalidatePath(`/circle/${circleId}`);
+  return inviteLink;
+}
+
+export async function getLimitedInviteLinks(circleId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const circle = await prisma.circle.findUnique({
+    where: { id: circleId },
+  });
+
+  if (!circle || circle.ownerId !== session.user.id) {
+    throw new Error("Unauthorized");
+  }
+
+  return await prisma.circleInviteLink.findMany({
+    where: { circleId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function revokeLimitedInviteLink(linkId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const link = await prisma.circleInviteLink.findUnique({
+    where: { id: linkId },
+    include: { circle: true },
+  });
+
+  if (!link || link.circle.ownerId !== session.user.id) {
+    throw new Error("Unauthorized");
+  }
+
+  await prisma.circleInviteLink.delete({
+    where: { id: linkId },
+  });
+
+  revalidatePath(`/circle/${link.circleId}`);
+  return { success: true };
+}
+
+export async function updateCircleSettings(
+  circleId: string,
+  settings: { isInviteLinkEnabled?: boolean },
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const circle = await prisma.circle.findUnique({
+    where: { id: circleId },
+  });
+
+  if (!circle || circle.ownerId !== session.user.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const updated = await prisma.circle.update({
+    where: { id: circleId },
+    data: settings,
+  });
+
+  revalidatePath(`/circle/${circleId}`);
+  return updated;
 }
