@@ -29,7 +29,16 @@ export default async function SignInPage(props: {
 			<div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/20 blur-[120px] rounded-full motion-safe:animate-pulse delay-700" />
 
 			<Card className="w-full max-w-md glass border-white/20 relative z-10 backdrop-blur-2xl bg-white/5 dark:bg-black/40">
-				<CardHeader className="text-center space-y-2">
+				<CardHeader className="text-center space-y-4">
+					<div className="flex justify-center">
+						<img
+							src="/icons/icon-192.png"
+							alt="Privo.club"
+							width="80"
+							height="80"
+							className="rounded-xl"
+						/>
+					</div>
 					<CardTitle className="text-3xl font-bold tracking-tight">
 						Welcome to Privo
 						<span className="bg-primary px-2 py-0.5 rounded-2xl ml-1 text-2xl">

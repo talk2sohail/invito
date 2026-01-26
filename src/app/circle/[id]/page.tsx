@@ -59,7 +59,7 @@ export default async function CirclePage({ params }: CirclePageProps) {
 				<div className="absolute bottom-0 left-0 w-[40vw] h-[40vh] bg-blue-500/10 blur-[100px] pointer-events-none rounded-full" />
 
 				<div className="relative z-10 max-w-md w-full animate-fade-in-up">
-					<div className="w-24 h-24 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center mx-auto mb-8 ring-1 ring-yellow-500/20">
+					<div className="w-24 h-24 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-8 ring-1 ring-primary/20">
 						<Users className="w-10 h-10" />
 					</div>
 
@@ -75,12 +75,12 @@ export default async function CirclePage({ params }: CirclePageProps) {
 					</p>
 
 					<div className="glass p-6 rounded-2xl mb-8 flex items-center gap-4 text-left hover:bg-white/5 transition-colors">
-						<div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl font-bold text-white shadow-lg">
+						<div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-xl font-bold text-white shadow-lg">
 							{circle.owner.name?.charAt(0)}
 						</div>
 						<div>
 							<p className="font-bold text-lg">{circle.owner.name}</p>
-							<p className="text-sm text-yellow-400 font-medium">Hive Owner</p>
+							<p className="text-sm text-primary font-medium">Hive Owner</p>
 						</div>
 					</div>
 
@@ -139,9 +139,9 @@ export default async function CirclePage({ params }: CirclePageProps) {
 				{/* Hero Section */}
 				<section className="mb-16 flex flex-col md:flex-row items-start md:items-end justify-between gap-8 animate-fade-in-up delay-100">
 					<div className="relative group">
-						<div className="absolute -inset-4 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-[2.5rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+						<div className="absolute -inset-4 bg-primary/20 rounded-[2.5rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 						<div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6">
-							<div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2rem] bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-5xl sm:text-6xl font-bold text-white shadow-2xl shadow-yellow-600/40 ring-1 ring-white/10">
+							<div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2rem] bg-primary flex items-center justify-center text-5xl sm:text-6xl font-bold text-white shadow-2xl shadow-primary/40 ring-1 ring-white/10">
 								{circle.name.charAt(0)}
 							</div>
 							<div>

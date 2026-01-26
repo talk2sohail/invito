@@ -29,27 +29,37 @@ export default async function Home() {
 				<div className="absolute top-0 right-0 w-[50vw] h-[50vh] bg-primary/20 blur-[120px] pointer-events-none" />
 				<div className="absolute bottom-0 left-0 w-[40vw] h-[40vh] bg-blue-500/10 blur-[100px] pointer-events-none" />
 
-				<div className="max-w-6xl mx-auto px-6 py-16 relative z-10">
+				<div className="max-w-6xl mx-auto px-6 py-8 relative z-10">
 					{/* Header */}
-					<header className="flex items-center justify-between mb-20 animate-fade-in-up">
-						<div className="flex items-center gap-3">
-							<h1 className="text-2xl font-bold tracking-tight">
-								<span className="text-3xl">P</span>rivo
-								<span className="bg-primary px-2 py-0.5 rounded-2xl ml-1">
-									.club
-								</span>
-							</h1>
-						</div>
+					<header className="flex items-center justify-between mb-12 animate-fade-in-up">
+						<h1 className="text-2xl font-bold tracking-tight">
+							<span className="text-3xl">P</span>rivo
+							<span className="bg-primary px-2 py-0.5 rounded-2xl ml-1">
+								.club
+							</span>
+						</h1>
 					</header>
 
 					{/* Hero Section */}
 					<section className="text-center mb-32 animate-fade-in-up delay-100">
+						<div className="flex justify-center mb-8">
+							<div className="relative">
+								<div className="absolute -inset-6 bg-primary/20 rounded-full blur-3xl opacity-60" />
+								<Image
+									src="/icons/icon-192.png"
+									alt="Privo.club"
+									width={120}
+									height={120}
+									className="rounded-2xl relative z-10 shadow-2xl"
+								/>
+							</div>
+						</div>
 						<h2 className="text-6xl sm:text-7xl md:text-8xl font-extrabold tracking-tight mb-8 leading-[1.1]">
 							<span className="text-foreground text-balance block">
 								Your moments.
 							</span>
 							<span className="text-foreground text-balance block">
-								Your hive.
+								Your People.
 							</span>
 						</h2>
 						<p className="text-xl sm:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
@@ -330,6 +340,21 @@ export default async function Home() {
 
 					{/* Footer */}
 					<footer className="mt-32 pt-12 border-t border-white/5 text-center text-muted-foreground text-sm">
+						<div className="flex flex-col items-center gap-4 mb-8">
+							<Image
+								src="/icons/icon-192.png"
+								alt="Privo.club"
+								width={48}
+								height={48}
+								className="rounded-lg opacity-80"
+							/>
+							<div className="font-bold text-base">
+								Privo
+								<span className="bg-primary px-1.5 py-0.5 rounded-xl ml-1 text-sm">
+									.club
+								</span>
+							</div>
+						</div>
 						<p>© 2026 Privo.club. Celebrate moments that matter.</p>
 					</footer>
 				</div>
@@ -349,14 +374,12 @@ export default async function Home() {
 			<div className="max-w-6xl mx-auto px-6 py-12 relative z-10">
 				{/* Header */}
 				<header className="flex items-center justify-between mb-16 animate-fade-in-up">
-					<div className="flex items-center gap-3">
-						<h1 className="text-2xl font-bold tracking-tight">
-							<span className="text-3xl">P</span>rivo
-							<span className="bg-primary px-2 py-0.5 rounded-2xl ml-1">
-								.club
-							</span>
-						</h1>
-					</div>
+					<h1 className="text-2xl font-bold tracking-tight">
+						<span className="text-3xl">P</span>rivo
+						<span className="bg-primary px-2 py-0.5 rounded-2xl ml-1">
+							.club
+						</span>
+					</h1>
 					<div className="flex items-center gap-4">
 						<div className="hidden sm:block text-right">
 							<p className="text-sm font-medium leading-none mb-1">

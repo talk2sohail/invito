@@ -1,26 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <!-- Privo.club Brand Colors: Black background matching brand design -->
-  <rect width="512" height="512" rx="120" fill="#000000" />
-  
-  <!-- Simple geometric gift box design matching brand -->
-  <!-- Box body - hexagonal shape -->
-  <path d="M 180 240 L 256 200 L 332 240 L 332 360 L 256 400 L 180 360 Z" fill="#E5E5E5" stroke="#E5E5E5" stroke-width="2" stroke-linejoin="miter"/>
-  
-  <!-- Box left face -->
-  <path d="M 180 240 L 180 360 L 256 400 L 256 280 Z" fill="#C0C0C0" />
-  
-  <!-- Box right face -->
-  <path d="M 256 280 L 256 400 L 332 360 L 332 240 Z" fill="#D8D8D8" />
-  
-  <!-- Bow on top - diamond shape -->
-  <path d="M 256 160 L 226 180 L 256 200 L 286 180 Z" fill="#E5E5E5" />
-  
-  <!-- Bow left ribbon -->
-  <path d="M 196 140 L 226 180 L 256 160 L 226 120 Z" fill="#C0C0C0" />
-  
-  <!-- Bow right ribbon -->
-  <path d="M 316 140 L 286 180 L 256 160 L 286 120 Z" fill="#D8D8D8" />
-  
-  <!-- Center line from bow to box -->
-  <line x1="256" y1="200" x2="256" y2="240" stroke="#B0B0B0" stroke-width="4"/>
+<svg width="512" height="512" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <mask id="strap-mask">
+      <rect width="200" height="200" fill="white"/>
+      
+      <g stroke="black" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter">
+        <path d="M 100 80 L 10 25" />
+        <path d="M 100 80 L 190 25" />
+        <path d="M 100 80 L 62 102 L 62 200" fill="none" />
+        <path d="M 100 80 L 138 102 L 138 200" fill="none" />
+      </g>
+    </mask>
+  </defs>
+
+  <path 
+    d="M 100 25 L 170 65 L 170 145 L 100 185 L 30 145 L 30 65 Z" 
+    fill="#F0F0E8" 
+    stroke="#F0F0E8" 
+    stroke-width="20" 
+    stroke-linejoin="round"
+    mask="url(#strap-mask)"
+  />
 </svg>
