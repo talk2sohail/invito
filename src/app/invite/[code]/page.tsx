@@ -45,7 +45,11 @@ export default async function InvitePage({ params }: InvitePageProps) {
     "use server";
     const result = await joinCircleByCode(code);
     if (result.success) {
-      redirect(`/circle/${result.circleId}`);
+      if (result.pending) {
+        redirect(`/circle/${result.circleId}?status=pending`);
+      } else {
+        redirect(`/circle/${result.circleId}`);
+      }
     }
   };
 

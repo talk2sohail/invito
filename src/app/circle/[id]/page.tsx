@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { getCircle } from "@/app/actions/circles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, ArrowLeft, MoreHorizontal, Plus } from "lucide-react";
+import { Calendar, Users, ArrowLeft, MoreHorizontal, Plus, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,8 @@ import Image from "next/image";
 import { InviteMemberDialog } from "@/components/circle/InviteMemberDialog";
 import { CircleSettingsMenu } from "@/components/circle/CircleSettingsMenu";
 import { CreateInviteDialog } from "@/components/invites/create-invite-dialog";
+import { approveMember, rejectMember } from "@/app/actions/circles";
+import { revalidatePath } from "next/cache";
 
 interface CirclePageProps {
   params: Promise<{ id: string }>;
@@ -35,6 +37,24 @@ export default async function CirclePage({ params }: CirclePageProps) {
   }
 
   const isOwner = session?.user?.id === circle.ownerId;
+  const activeMembers = circle.members.filter(
+    (member) => member.status === "ACTIVE",
+  );
+  const pendingMembers = circle.members.filter(
+    (member) => member.status === "PENDING",
+  );
+
+  const handleApprove = async (memberId: string) => {
+    "use server";
+    await approveMember(id, memberId);
+    revalidatePath(`/circle/${id}`);
+  };
+
+  const handleReject = async (memberId: string) => {
+    "use server";
+    await rejectMember(id, memberId);
+    revalidatePath(`/circle/${id}`);
+  };
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden pb-20">
@@ -102,6 +122,7 @@ export default async function CirclePage({ params }: CirclePageProps) {
             <InviteMemberDialog
               circleId={circle.id}
               inviteCode={circle.inviteCode}
+              isInviteLinkEnabled={circle.isInviteLinkEnabled}
               isOwner={isOwner}
             >
               <Button className="rounded-full h-12 px-6 font-bold shadow-lg shadow-primary/25">
@@ -115,15 +136,78 @@ export default async function CirclePage({ params }: CirclePageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Members Column */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Pending Members */}
+            {isOwner && pendingMembers.length > 0 && (
+              <Card className="rounded-[2.5rem] glass border-yellow-500/30 overflow-hidden shadow-xl">
+                <CardHeader className="pb-4 bg-yellow-500/10 border-b border-yellow-500/20 flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Users className="w-5 h-5 text-yellow-500" />
+                    Pending ({pendingMembers.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                  {pendingMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 group"
+                    >
+                      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/10">
+                        {member.user.image ? (
+                          <Image
+                            src={member.user.image}
+                            alt={member.user.name || "User"}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted flex items-center justify-center font-bold">
+                            {member.user.name?.[0]}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold">{member.user.name}</p>
+                        <p className="text-[10px] text-yellow-500 uppercase font-bold tracking-wider">
+                          PENDING
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <form action={handleApprove.bind(null, member.id)}>
+                          <Button
+                            type="submit"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </Button>
+                        </form>
+                        <form action={handleReject.bind(null, member.id)}>
+                          <Button
+                            type="submit"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </Button>
+                        </form>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="rounded-[2.5rem] glass border-white/10 overflow-hidden shadow-xl">
               <CardHeader className="pb-4 bg-white/5 border-b border-white/5 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Users className="w-5 h-5 text-purple-500" />
-                  Members ({circle.members.length})
+                  Members ({activeMembers.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
-                {circle.members.map((member) => (
+                {activeMembers.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center gap-3 group"
