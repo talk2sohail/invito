@@ -92,6 +92,15 @@ export default async function InvitePage({ params }: InvitePageProps) {
           <span className="font-semibold text-foreground">
             {session.user.name}
           </span>
+          {circle.isLimitedLink ? (
+            <span className="block mt-2 text-green-500">
+              ✓ You will be approved automatically
+            </span>
+          ) : (
+            <span className="block mt-2 text-amber-500">
+              ⏳ Your request will need owner approval
+            </span>
+          )}
         </p>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { getCircle } from "@/app/actions/circles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, ArrowLeft, MoreHorizontal, Plus } from "lucide-react";
+import { Calendar, Users, ArrowLeft, MoreHorizontal, Plus, Check, X } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,7 @@ import Image from "next/image";
 import { InviteMemberDialog } from "@/components/circle/InviteMemberDialog";
 import { CircleSettingsMenu } from "@/components/circle/CircleSettingsMenu";
 import { CreateInviteDialog } from "@/components/invites/create-invite-dialog";
+import { MemberApprovalButtons } from "@/components/circle/MemberApprovalButtons";
 
 interface CirclePageProps {
   params: Promise<{ id: string }>;
@@ -35,6 +36,8 @@ export default async function CirclePage({ params }: CirclePageProps) {
   }
 
   const isOwner = session?.user?.id === circle.ownerId;
+  const activeMembers = circle.members.filter(m => m.status === "ACTIVE");
+  const pendingMembers = circle.members.filter(m => m.status === "PENDING");
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden pb-20">
@@ -116,15 +119,58 @@ export default async function CirclePage({ params }: CirclePageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Members Column */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Pending Members (Owner only) */}
+            {isOwner && pendingMembers.length > 0 && (
+              <Card className="rounded-[2.5rem] glass border-amber-500/20 overflow-hidden shadow-xl">
+                <CardHeader className="pb-4 bg-amber-500/5 border-b border-amber-500/10 flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Users className="w-5 h-5 text-amber-500" />
+                    Pending Approval ({pendingMembers.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                  {pendingMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/10">
+                        {member.user.image ? (
+                          <Image
+                            src={member.user.image}
+                            alt={member.user.name || "User"}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted flex items-center justify-center font-bold">
+                            {member.user.name?.[0]}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold">{member.user.name}</p>
+                        <p className="text-[10px] text-amber-500 uppercase font-bold tracking-wider">
+                          PENDING
+                        </p>
+                      </div>
+                      <MemberApprovalButtons memberId={member.id} />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Active Members */}
             <Card className="rounded-[2.5rem] glass border-white/10 overflow-hidden shadow-xl">
               <CardHeader className="pb-4 bg-white/5 border-b border-white/5 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Users className="w-5 h-5 text-purple-500" />
-                  Members ({circle.members.length})
+                  Members ({activeMembers.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
-                {circle.members.map((member) => (
+                {activeMembers.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center gap-3 group"
