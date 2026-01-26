@@ -51,12 +51,11 @@ func TestGetProfile(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
 				mock.ExpectQuery(`SELECT COUNT\(\*\) FROM "Invite"`).WithArgs("user-123").
 					WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
-				mock.ExpectQuery(`SELECT COUNT\(\*\) FROM "RSVP"`).WithArgs("user-123").
-					WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(4))
+				// Combined RSVP query returns both events_attended and total_responses
+				mock.ExpectQuery(`SELECT COUNT\(CASE WHEN status = 'YES' THEN 1 END\)`).WithArgs("user-123").
+					WillReturnRows(sqlmock.NewRows([]string{"events_attended", "total_responses"}).AddRow(4, 8))
 				mock.ExpectQuery(`SELECT COUNT\(DISTINCT i.id\)`).WithArgs("user-123").
 					WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(10))
-				mock.ExpectQuery(`SELECT COUNT\(\*\) FROM "RSVP"`).WithArgs("user-123").
-					WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(8))
 				mock.ExpectQuery(`SELECT COUNT\(\*\) FROM "EventFeedItem"`).WithArgs("user-123").
 					WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(12))
 			},

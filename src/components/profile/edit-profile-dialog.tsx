@@ -105,7 +105,7 @@ export function EditProfileDialog({
 						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="visibility">Profile Visibility</Label>
-							<Select value={visibility} onValueChange={(value: any) => setVisibility(value)}>
+							<Select value={visibility} onValueChange={(value: "PUBLIC" | "PRIVATE" | "CIRCLES_ONLY") => setVisibility(value)}>
 								<SelectTrigger>
 									<SelectValue />
 								</SelectTrigger>

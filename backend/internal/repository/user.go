@@ -57,16 +57,24 @@ func (r *userRepository) GetUserStats(ctx context.Context, userID string) (*mode
 		return nil, err
 	}
 	
-	// Get events attended count (RSVPs with YES status)
-	err = r.DB.GetContext(ctx, &stats.EventsAttended,
-		`SELECT COUNT(*) FROM "RSVP" WHERE "userId" = $1 AND status = 'YES'`, userID)
-	if err != nil {
-		return nil, err
+	// Get RSVP statistics (both attended events and total responses) in one query
+	var rsvpStats struct {
+		EventsAttended int `db:"events_attended"`
+		TotalResponses int `db:"total_responses"`
 	}
 	
-	// Get RSVP response rate
+	err = r.DB.GetContext(ctx, &rsvpStats,
+		`SELECT 
+			COUNT(CASE WHEN status = 'YES' THEN 1 END) as events_attended,
+			COUNT(*) as total_responses
+		 FROM "RSVP" WHERE "userId" = $1`, userID)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	stats.EventsAttended = rsvpStats.EventsAttended
+	
+	// Get total invites user has access to for response rate calculation
 	var totalInvites int
-	var totalResponses int
 	
 	err = r.DB.GetContext(ctx, &totalInvites,
 		`SELECT COUNT(DISTINCT i.id)
@@ -77,14 +85,8 @@ func (r *userRepository) GetUserStats(ctx context.Context, userID string) (*mode
 		return nil, err
 	}
 	
-	err = r.DB.GetContext(ctx, &totalResponses,
-		`SELECT COUNT(*) FROM "RSVP" WHERE "userId" = $1`, userID)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-	
 	if totalInvites > 0 {
-		stats.RSVPResponseRate = float64(totalResponses) / float64(totalInvites) * 100
+		stats.RSVPResponseRate = float64(rsvpStats.TotalResponses) / float64(totalInvites) * 100
 	} else {
 		stats.RSVPResponseRate = 0
 	}
