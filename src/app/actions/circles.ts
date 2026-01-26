@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { nanoid } from "nanoid";
 
 export async function createCircle(formData: FormData) {
   const session = await auth();
@@ -100,7 +101,6 @@ export async function regenerateInviteCode(circleId: string) {
     throw new Error("Unauthorized");
   }
 
-  const { nanoid } = await import("nanoid");
   const newCode = nanoid(10);
 
   await prisma.circle.update({
@@ -272,7 +272,6 @@ export async function createLimitedInviteLink(
     throw new Error("Unauthorized");
   }
 
-  const { nanoid } = await import("nanoid");
   const code = nanoid(10);
 
   const inviteLink = await prisma.circleInviteLink.create({

@@ -61,11 +61,22 @@ export function InviteMemberDialog({
   const [isLoadingLinks, setIsLoadingLinks] = useState(false);
 
   useEffect(() => {
+    const loadLinks = async () => {
+      try {
+        setIsLoadingLinks(true);
+        const links = await getLimitedInviteLinks(circleId);
+        setLimitedLinks(links as LimitedInviteLink[]);
+      } catch {
+        toast.error("Failed to load limited links");
+      } finally {
+        setIsLoadingLinks(false);
+      }
+    };
+
     if (open && isOwner) {
-      loadLimitedLinks();
+      loadLinks();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isOwner]);
+  }, [open, isOwner, circleId]);
 
   const loadLimitedLinks = async () => {
     try {
@@ -129,7 +140,7 @@ export function InviteMemberDialog({
   };
 
   const handleCreateLimitedLink = async () => {
-    if (!maxUses || maxUses < 1) {
+    if (!maxUses || maxUses < 1 || isNaN(maxUses)) {
       toast.error("Please enter a valid number of uses");
       return;
     }
@@ -272,7 +283,10 @@ export function InviteMemberDialog({
                         type="number"
                         min="1"
                         value={maxUses}
-                        onChange={(e) => setMaxUses(parseInt(e.target.value))}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value, 10);
+                          setMaxUses(isNaN(value) ? 1 : Math.max(1, value));
+                        }}
                         className="bg-black/50 border-white/10 text-zinc-300 h-10 mt-1"
                         placeholder="5"
                       />
